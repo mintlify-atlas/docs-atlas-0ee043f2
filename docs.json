@@ -78,6 +78,10 @@
             "pages": ["api/transforms"]
           },
           {
+            "group": "Diff & Patches",
+            "pages": ["api/diff-and-patches"]
+          },
+          {
             "group": "Format Conversion",
             "pages": [
               "api/formats/overview",

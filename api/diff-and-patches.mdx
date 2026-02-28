@@ -1,0 +1,405 @@
+---
+title: Diff & Patches
+description: Compare graphs and apply incremental changes
+---
+
+# Diff & Patches
+
+The Diff & Patches API provides functions to compare graphs, compute structured differences, and apply incremental changes. This is useful for version control, undo/redo systems, and synchronization.
+
+## Overview
+
+- **`getDiff`** - Compute structured diff between two graphs
+- **`isEmptyDiff`** - Check if a diff has zero changes
+- **`invertDiff`** - Reverse a diff (swap added/removed, old/new)
+- **`getPatches`** - Generate ordered patch list from two graphs
+- **`applyPatches`** - Apply patches to a graph (mutable)
+- **`toPatches`** - Convert diff to ordered patch list
+- **`toDiff`** - Convert patch list to structured diff
+
+## Diff Functions
+
+### getDiff
+
+Compute a structured diff from graph `a` to graph `b` by matching entity IDs.
+
+```typescript
+function getDiff<N, E>(
+  a: Graph<N, E>,
+  b: Graph<N, E>
+): GraphDiff<N, E>
+```
+
+<ParamField path="a" type="Graph<N, E>" required>
+  The source graph (before changes)
+</ParamField>
+
+<ParamField path="b" type="Graph<N, E>" required>
+  The target graph (after changes)
+</ParamField>
+
+**Returns** `GraphDiff<N, E>` - Structured diff with added, removed, and updated entities
+
+#### Example
+
+```typescript
+import { createGraph, getDiff } from '@statelyai/graph';
+
+const a = createGraph({
+  nodes: [{ id: 'n1' }],
+  edges: []
+});
+
+const b = createGraph({
+  nodes: [
+    { id: 'n1', label: 'Updated' },
+    { id: 'n2' }
+  ],
+  edges: [{ id: 'e1', sourceId: 'n1', targetId: 'n2' }]
+});
+
+const diff = getDiff(a, b);
+console.log(diff);
+// {
+//   nodes: {
+//     added: [{ id: 'n2' }],
+//     removed: [],
+//     updated: [{ id: 'n1', old: { label: '' }, new: { label: 'Updated' } }]
+//   },
+//   edges: {
+//     added: [{ id: 'e1', sourceId: 'n1', targetId: 'n2' }],
+//     removed: [],
+//     updated: []
+//   }
+// }
+```
+
+### isEmptyDiff
+
+Check if a diff has zero changes (no additions, removals, or updates).
+
+```typescript
+function isEmptyDiff(diff: GraphDiff): boolean
+```
+
+<ParamField path="diff" type="GraphDiff" required>
+  The diff to check
+</ParamField>
+
+**Returns** `boolean` - `true` if diff has no changes
+
+#### Example
+
+```typescript
+import { createGraph, getDiff, isEmptyDiff } from '@statelyai/graph';
+
+const graph = createGraph({ nodes: [{ id: 'n1' }], edges: [] });
+const diff = getDiff(graph, graph);
+
+if (isEmptyDiff(diff)) {
+  console.log('No changes detected');
+}
+```
+
+### invertDiff
+
+Invert a diff by swapping added/removed arrays and old/new values in updates.
+
+```typescript
+function invertDiff<N, E>(diff: GraphDiff<N, E>): GraphDiff<N, E>
+```
+
+<ParamField path="diff" type="GraphDiff<N, E>" required>
+  The diff to invert
+</ParamField>
+
+**Returns** `GraphDiff<N, E>` - Inverted diff (reverses the changes)
+
+#### Example
+
+```typescript
+import { createGraph, getDiff, invertDiff } from '@statelyai/graph';
+
+const a = createGraph({ nodes: [{ id: 'n1' }], edges: [] });
+const b = createGraph({ nodes: [{ id: 'n2' }], edges: [] });
+
+const forward = getDiff(a, b);
+// forward.nodes.added → [{ id: 'n2' }]
+// forward.nodes.removed → [{ id: 'n1' }]
+
+const backward = invertDiff(forward);
+// backward.nodes.added → [{ id: 'n1' }]
+// backward.nodes.removed → [{ id: 'n2' }]
+```
+
+## Patch Functions
+
+### getPatches
+
+Compute an ordered patch list from graph `a` to graph `b`. Patches are ordered to avoid referential integrity violations.
+
+**Patch order**: delete edges → delete nodes → add nodes → add edges → update nodes → update edges
+
+```typescript
+function getPatches<N, E>(
+  a: Graph<N, E>,
+  b: Graph<N, E>
+): GraphPatch<N, E>[]
+```
+
+<ParamField path="a" type="Graph<N, E>" required>
+  The source graph
+</ParamField>
+
+<ParamField path="b" type="Graph<N, E>" required>
+  The target graph
+</ParamField>
+
+**Returns** `GraphPatch<N, E>[]` - Ordered array of patches
+
+#### Example
+
+```typescript
+import { createGraph, getPatches } from '@statelyai/graph';
+
+const a = createGraph({
+  nodes: [{ id: 'n1' }],
+  edges: []
+});
+
+const b = createGraph({
+  nodes: [{ id: 'n1' }, { id: 'n2' }],
+  edges: [{ id: 'e1', sourceId: 'n1', targetId: 'n2' }]
+});
+
+const patches = getPatches(a, b);
+// [
+//   { op: 'addNode', node: { id: 'n2' } },
+//   { op: 'addEdge', edge: { id: 'e1', sourceId: 'n1', targetId: 'n2' } }
+// ]
+```
+
+### applyPatches
+
+**Mutable.** Apply an ordered list of patches to a graph. Delegates to `addNode`, `deleteNode`, `updateNode`, `addEdge`, `deleteEdge`, and `updateEdge`.
+
+```typescript
+function applyPatches<N, E>(
+  graph: Graph<N, E>,
+  patches: GraphPatch<N, E>[]
+): void
+```
+
+<ParamField path="graph" type="Graph<N, E>" required>
+  The graph to modify in place
+</ParamField>
+
+<ParamField path="patches" type="GraphPatch<N, E>[]" required>
+  Ordered array of patches to apply
+</ParamField>
+
+#### Example
+
+```typescript
+import { createGraph, getPatches, applyPatches } from '@statelyai/graph';
+
+const a = createGraph({ nodes: [{ id: 'n1' }], edges: [] });
+const b = createGraph({ nodes: [{ id: 'n1' }, { id: 'n2' }], edges: [] });
+
+const patches = getPatches(a, b);
+applyPatches(a, patches);
+
+console.log(a.nodes.length); // 2
+console.log(a.nodes[1].id);  // 'n2'
+```
+
+## Conversion Functions
+
+### toPatches
+
+Convert a structured diff to an ordered patch list. The patch order ensures referential integrity:
+
+1. Add nodes (so new edges can reference them)
+2. Update edges (move endpoints away from deleted nodes)
+3. Delete edges (before their nodes are deleted)
+4. Delete nodes (safe now that edges are gone)
+5. Add edges (all referenced nodes exist)
+6. Update nodes
+
+```typescript
+function toPatches<N, E>(diff: GraphDiff<N, E>): GraphPatch<N, E>[]
+```
+
+<ParamField path="diff" type="GraphDiff<N, E>" required>
+  The structured diff to convert
+</ParamField>
+
+**Returns** `GraphPatch<N, E>[]` - Ordered patch array
+
+#### Example
+
+```typescript
+import { createGraph, getDiff, toPatches } from '@statelyai/graph';
+
+const a = createGraph({ nodes: [{ id: 'n1' }], edges: [] });
+const b = createGraph({ nodes: [{ id: 'n2' }], edges: [] });
+
+const diff = getDiff(a, b);
+const patches = toPatches(diff);
+// [
+//   { op: 'addNode', node: { id: 'n2' } },
+//   { op: 'deleteNode', id: 'n1' }
+// ]
+```
+
+### toDiff
+
+Convert an ordered patch list back into a structured diff.
+
+```typescript
+function toDiff<N, E>(patches: GraphPatch<N, E>[]): GraphDiff<N, E>
+```
+
+<ParamField path="patches" type="GraphPatch<N, E>[]" required>
+  Array of patches to group
+</ParamField>
+
+**Returns** `GraphDiff<N, E>` - Structured diff
+
+#### Example
+
+```typescript
+import { createGraph, getPatches, toDiff } from '@statelyai/graph';
+
+const a = createGraph({ nodes: [{ id: 'n1' }], edges: [] });
+const b = createGraph({ nodes: [{ id: 'n1' }, { id: 'n2' }], edges: [] });
+
+const patches = getPatches(a, b);
+const diff = toDiff(patches);
+
+console.log(diff.nodes.added);  // [{ id: 'n2' }]
+console.log(diff.nodes.removed); // []
+```
+
+## Types
+
+### GraphDiff
+
+Structured representation of changes between two graphs:
+
+```typescript
+interface GraphDiff<N = any, E = any> {
+  nodes: {
+    added: NodeConfig<N>[];
+    removed: NodeConfig<N>[];
+    updated: NodeChange<N>[];
+  };
+  edges: {
+    added: EdgeConfig<E>[];
+    removed: EdgeConfig<E>[];
+    updated: EdgeChange<E>[];
+  };
+}
+```
+
+### NodeChange / EdgeChange
+
+```typescript
+interface NodeChange<N = any> {
+  id: string;
+  old: Partial<GraphNode<N>>;
+  new: Partial<GraphNode<N>>;
+}
+
+interface EdgeChange<E = any> {
+  id: string;
+  old: Partial<GraphEdge<E>>;
+  new: Partial<GraphEdge<E>>;
+}
+```
+
+### GraphPatch
+
+Union type representing individual patch operations:
+
+```typescript
+type GraphPatch<N = any, E = any> =
+  | { op: 'addNode'; node: NodeConfig<N> }
+  | { op: 'deleteNode'; id: string }
+  | { op: 'updateNode'; id: string; data: Partial<Omit<NodeConfig<N>, 'id'>> }
+  | { op: 'addEdge'; edge: EdgeConfig<E> }
+  | { op: 'deleteEdge'; id: string }
+  | { op: 'updateEdge'; id: string; data: Partial<Omit<EdgeConfig<E>, 'id'>> };
+```
+
+## Use Cases
+
+### Version Control
+
+Track changes between graph versions:
+
+```typescript
+import { createGraph, getDiff, getNode, addNode } from '@statelyai/graph';
+
+const v1 = createGraph({ nodes: [{ id: 'a' }], edges: [] });
+const v2 = structuredClone(v1);
+
+addNode(v2, { id: 'b' });
+
+const changelog = getDiff(v1, v2);
+console.log(`Added ${changelog.nodes.added.length} nodes`);
+```
+
+### Undo/Redo System
+
+Use invertDiff to implement undo:
+
+```typescript
+import { createGraph, getDiff, invertDiff, applyPatches, toPatches } from '@statelyai/graph';
+
+const history: GraphPatch[][] = [];
+const graph = createGraph({ nodes: [{ id: 'a' }], edges: [] });
+
+function doAction(newGraph: Graph) {
+  const patches = getPatches(graph, newGraph);
+  history.push(patches);
+  applyPatches(graph, patches);
+}
+
+function undo() {
+  const lastPatches = history.pop();
+  if (!lastPatches) return;
+  
+  const diff = toDiff(lastPatches);
+  const inverseDiff = invertDiff(diff);
+  const undoPatches = toPatches(inverseDiff);
+  
+  applyPatches(graph, undoPatches);
+}
+```
+
+### Synchronization
+
+Sync graphs across network or storage:
+
+```typescript
+import { createGraph, getPatches, applyPatches } from '@statelyai/graph';
+
+// Client side
+const local = createGraph({ nodes: [{ id: 'a' }], edges: [] });
+const remote = createGraph({ nodes: [{ id: 'a' }, { id: 'b' }], edges: [] });
+
+const patches = getPatches(local, remote);
+sendToServer(patches); // Send minimal delta
+
+// Server side
+receiveFromClient((patches) => {
+  applyPatches(serverGraph, patches);
+});
+```
+
+## Related
+
+- [Graph Creation](/api/graph-creation) - Factory functions
+- [Mutations](/api/mutations) - Individual mutation functions used by applyPatches
+- [Serialization](/concepts/serialization) - Graph storage and versioning

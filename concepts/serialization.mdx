@@ -249,7 +249,7 @@ const createdAt = new Date(restored.nodes[0].data.createdAt);
 The library includes Zod schemas for validation:
 
 ```typescript
-import { GraphSchema, NodeSchema, EdgeSchema } from '@statelyai/graph';
+import { GraphSchema, NodeSchema, EdgeSchema } from '@statelyai/graph/schemas';
 
 const json = `{
   "id": "test",
@@ -457,7 +457,7 @@ TypeScript can't verify JSON at runtime. Use type assertions carefully:
 
 ```typescript
 import type { Graph } from '@statelyai/graph';
-import { GraphSchema } from '@statelyai/graph';
+import { GraphSchema } from '@statelyai/graph/schemas';
 
 const json = localStorage.getItem('graph');
 if (json) {
