@@ -1,0 +1,265 @@
+---
+title: Cytoscape.js Format
+description: Convert graphs to and from Cytoscape.js JSON format
+---
+
+# Cytoscape.js Format
+
+Convert graphs to and from [Cytoscape.js](https://js.cytoscape.org/) JSON format for visualization.
+
+## Features
+
+- **Compound graphs**: Full support for hierarchical graphs via `parent` property
+- **Visual properties**: Position, color, shape, width, height
+- **No dependencies**: Pure JavaScript conversion
+- **Round-trip safe**: Preserves all graph data
+
+## Import
+
+```ts
+import { toCytoscapeJSON, fromCytoscapeJSON, cytoscapeConverter } from '@statelyai/graph';
+// Or from subpath:
+import { toCytoscapeJSON } from '@statelyai/graph/cytoscape';
+```
+
+## `toCytoscapeJSON()`
+
+Converts a graph to Cytoscape.js JSON format.
+
+```ts
+import { createGraph, toCytoscapeJSON } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'a', label: 'Start', x: 0, y: 0 },
+    { id: 'b', label: 'End', x: 200, y: 100, parentId: 'container' },
+    { id: 'container', label: 'Container' }
+  ],
+  edges: [
+    { id: 'e0', sourceId: 'a', targetId: 'b', label: 'go' }
+  ],
+});
+
+const cyto = toCytoscapeJSON(graph);
+```
+
+**Result:**
+
+```json
+{
+  "data": {
+    "type": "directed"
+  },
+  "elements": {
+    "nodes": [
+      {
+        "data": { "id": "a", "label": "Start" },
+        "position": { "x": 0, "y": 0 }
+      },
+      {
+        "data": { "id": "b", "label": "End", "parent": "container" },
+        "position": { "x": 200, "y": 100 }
+      },
+      {
+        "data": { "id": "container", "label": "Container" }
+      }
+    ],
+    "edges": [
+      {
+        "data": { "id": "e0", "source": "a", "target": "b", "label": "go" }
+      }
+    ]
+  }
+}
+```
+
+### Type Signature
+
+```ts
+function toCytoscapeJSON(graph: Graph): CytoscapeJSON
+```
+
+### Parameters
+
+<ParamField path="graph" type="Graph" required>
+  The graph to convert
+</ParamField>
+
+### Returns
+
+A `CytoscapeJSON` object with:
+- `data`: Graph-level metadata (type, id, direction, graphData)
+- `elements.nodes`: Array of Cytoscape nodes
+- `elements.edges`: Array of Cytoscape edges
+
+### Mapping
+
+| Graph Property | Cytoscape Property | Location |
+|----------------|-------------------|----------|
+| `node.id` | `id` | `data.id` |
+| `node.label` | `label` | `data.label` |
+| `node.parentId` | `parent` | `data.parent` |
+| `node.x, node.y` | Position | `position: { x, y }` |
+| `node.color` | Color | `data.color` |
+| `node.shape` | Shape | `data.shape` |
+| `node.width, node.height` | Dimensions | `data.width, data.height` |
+| `node.data` | Custom data | `data.nodeData` |
+| `edge.id` | `id` | `data.id` |
+| `edge.sourceId` | `source` | `data.source` |
+| `edge.targetId` | `target` | `data.target` |
+| `edge.label` | Label | `data.label` |
+| `edge.color` | Color | `data.color` |
+| `edge.data` | Custom data | `data.edgeData` |
+
+## `fromCytoscapeJSON()`
+
+Parses Cytoscape.js JSON into a graph.
+
+```ts
+import { fromCytoscapeJSON } from '@statelyai/graph';
+
+const graph = fromCytoscapeJSON({
+  elements: {
+    nodes: [
+      { data: { id: 'a', label: 'Start' } },
+      { data: { id: 'b', parent: 'container' } }
+    ],
+    edges: [
+      { data: { id: 'e0', source: 'a', target: 'b' } }
+    ]
+  }
+});
+```
+
+### Type Signature
+
+```ts
+function fromCytoscapeJSON(cyto: CytoscapeJSON): Graph
+```
+
+### Parameters
+
+<ParamField path="cyto" type="CytoscapeJSON" required>
+  Cytoscape.js JSON object to parse
+</ParamField>
+
+### Returns
+
+A `Graph` object with nodes and edges.
+
+### Error Handling
+
+Throws errors for invalid input:
+
+```ts
+// Missing elements
+fromCytoscapeJSON({}); // Error: Cytoscape: missing "elements" property
+
+// Invalid nodes
+fromCytoscapeJSON({ elements: { nodes: "invalid" } });
+// Error: Cytoscape: "elements.nodes" must be an array
+```
+
+## `cytoscapeConverter`
+
+Bidirectional converter object.
+
+```ts
+import { createGraph, cytoscapeConverter } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e0', sourceId: 'a', targetId: 'b' }]
+});
+
+const cyto = cytoscapeConverter.to(graph);
+const roundTripped = cytoscapeConverter.from(cyto);
+```
+
+### Type
+
+```ts
+const cytoscapeConverter: GraphFormatConverter<CytoscapeJSON>
+```
+
+## Type Definitions
+
+```ts
+interface CytoscapeNode {
+  data: {
+    id: string;
+    parent?: string;
+    [key: string]: any;
+  };
+  position?: { x: number; y: number };
+}
+
+interface CytoscapeEdge {
+  data: {
+    id: string;
+    source: string;
+    target: string;
+    [key: string]: any;
+  };
+}
+
+interface CytoscapeJSON {
+  data?: Record<string, any>;
+  elements: {
+    nodes: CytoscapeNode[];
+    edges: CytoscapeEdge[];
+  };
+}
+```
+
+## Compound Graphs Example
+
+```ts
+import { createGraph, toCytoscapeJSON } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'cluster1', label: 'Cluster 1' },
+    { id: 'cluster2', label: 'Cluster 2' },
+    { id: 'a', parentId: 'cluster1' },
+    { id: 'b', parentId: 'cluster1' },
+    { id: 'c', parentId: 'cluster2' },
+  ],
+  edges: [
+    { id: 'e0', sourceId: 'a', targetId: 'b' },
+    { id: 'e1', sourceId: 'b', targetId: 'c' }
+  ]
+});
+
+const cyto = toCytoscapeJSON(graph);
+// Nodes will have parent property set correctly
+```
+
+## Usage with Cytoscape.js
+
+```ts
+import { toCytoscapeJSON } from '@statelyai/graph';
+import cytoscape from 'cytoscape';
+
+const cytoscapeData = toCytoscapeJSON(graph);
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements: cytoscapeData.elements,
+  style: [
+    {
+      selector: 'node',
+      style: {
+        'background-color': '#666',
+        'label': 'data(label)'
+      }
+    }
+  ]
+});
+```
+
+## See Also
+
+- [D3.js Format](/api/formats/d3) - Another JSON visualization format
+- [XYFlow Format](/api/formats/other-formats#xyflow) - React Flow / Svelte Flow format
+- [Format Overview](/api/formats/overview) - All supported formats

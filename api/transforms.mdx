@@ -1,0 +1,142 @@
+---
+title: 'Transforms'
+description: 'Functions for transforming graph structures'
+---
+
+## flatten
+
+Flattens a hierarchical graph into a flat graph containing only leaf nodes.
+
+This function decomposes compound nodes (nodes with children) into a flat structure by:
+- Resolving edges targeting compound nodes to their initial child (recursively)
+- Expanding edges originating from compound nodes to all leaf descendants
+- Keeping only leaf nodes (nodes with no children) in the result
+- Deduplicating edges that have the same source and target
+
+```ts
+function flatten<N, E, G>(graph: Graph<N, E, G>): Graph<N, E, G>
+```
+
+### Parameters
+
+<ParamField path="graph" type="Graph<N, E, G>" required>
+  The hierarchical graph to flatten. The graph may contain compound nodes (nodes with `parentId` and `initialNodeId` properties) and nested hierarchies.
+</ParamField>
+
+### Returns
+
+Returns a new `Graph<N, E, G>` containing:
+- Only leaf nodes (nodes with no children) from the original graph
+- Transformed edges where:
+  - Edges to compound nodes resolve to the compound's initial child node (following `initialNodeId` recursively)
+  - Edges from compound nodes expand to multiple edges from all leaf descendants
+  - Duplicate edges are removed
+  - Self-loops created during flattening are removed
+
+### Example: Basic Hierarchy Flattening
+
+```ts
+import { createGraph, flatten } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent', initialNodeId: 'child1' },
+    { id: 'child1', parentId: 'parent' },
+    { id: 'child2', parentId: 'parent' },
+    { id: 'other' },
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'other', targetId: 'parent' }
+  ],
+});
+
+const flat = flatten(graph);
+
+// Result contains only leaf nodes: child1, child2, other
+console.log(flat.nodes.map(n => n.id));
+// → ['child1', 'child2', 'other']
+
+// Edge from 'other' → 'parent' resolves to 'other' → 'child1'
+// (parent's initialNodeId is child1)
+console.log(flat.edges[0]);
+// → { sourceId: 'other', targetId: 'child1', ... }
+```
+
+### Example: Multi-Level Hierarchy
+
+```ts
+import { createGraph, flatten } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root', initialNodeId: 'A' },
+    { id: 'A', parentId: 'root', initialNodeId: 'A1' },
+    { id: 'A1', parentId: 'A' },
+    { id: 'A2', parentId: 'A' },
+    { id: 'B', parentId: 'root' },
+    { id: 'external' },
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'external', targetId: 'root' },
+    { id: 'e2', sourceId: 'root', targetId: 'external' },
+  ],
+});
+
+const flat = flatten(graph);
+
+// Leaf nodes only: A1, A2, B, external
+console.log(flat.nodes.map(n => n.id));
+// → ['A1', 'A2', 'B', 'external']
+
+// Edge from external → root resolves through root → A → A1
+// Edge from root → external expands to all leaves: A1, A2, B → external
+console.log(flat.edges.map(e => `${e.sourceId} → ${e.targetId}`));
+// → [
+//   'external → A1',
+//   'A1 → external',
+//   'A2 → external', 
+//   'B → external'
+// ]
+```
+
+### Use Cases
+
+**Statechart Decomposition**
+
+The `flatten` function is particularly useful for statecharts and hierarchical state machines. It converts a compound state hierarchy into a flat representation suitable for:
+- Generating transition tables
+- Analyzing reachability between leaf states
+- Simplifying state machine execution
+- Export to formats that don't support hierarchy
+
+**Graph Simplification**
+
+Use `flatten` to:
+- Remove structural complexity while preserving connectivity
+- Analyze the effective relationships between atomic nodes
+- Prepare hierarchical graphs for algorithms that only work with flat structures
+
+### Edge Resolution Rules
+
+When flattening a hierarchical graph, edges are transformed according to these rules:
+
+**Target Resolution (Edges Into Compound Nodes)**
+- If an edge targets a compound node, follow the compound's `initialNodeId` recursively until reaching a leaf node
+- If no `initialNodeId` is set, use the first child node
+- The edge resolves to a single target (the initial leaf)
+
+**Source Expansion (Edges From Compound Nodes)**  
+- If an edge originates from a compound node, expand it to edges from all leaf descendants
+- Each leaf descendant gets its own edge to the target
+- This ensures all atomic nodes that are conceptually "inside" the compound have the connection
+
+**Deduplication**
+- Multiple edges with identical source and target are deduplicated
+- Only one edge per source-target pair is kept
+- Self-loops created during flattening are removed
+
+### Related
+
+- [Graph Types](/concepts/graphs) - Core graph type definitions
+- [createGraph](/api/graph-creation) - Create a new graph instance
+- [getChildren](/api/queries/hierarchy) - Query child nodes in a hierarchy

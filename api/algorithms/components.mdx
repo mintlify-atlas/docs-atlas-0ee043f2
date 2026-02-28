@@ -1,0 +1,202 @@
+---
+title: Components
+description: Finding connected and strongly connected components in graphs
+---
+
+Component algorithms identify groups of nodes that are connected to each other. These algorithms help analyze graph connectivity and structure.
+
+## getConnectedComponents
+
+```ts
+function getConnectedComponents<N>(
+  graph: Graph<N>
+): GraphNode<N>[][]
+```
+
+Returns connected components as arrays of nodes. Treats all edges as undirected for connectivity.
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Finding isolated subgraphs
+- Checking if graph is connected
+- Partitioning graphs into independent parts
+- Network analysis and clustering
+
+**Note:** This treats directed graphs as undirected when finding components.
+
+### Example
+
+```ts
+import { createGraph, getConnectedComponents } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [{ id: 'ab', sourceId: 'a', targetId: 'b' }],
+});
+
+const components = getConnectedComponents(graph);
+// [[nodeA, nodeB], [nodeC]]
+```
+
+### Use cases
+
+#### Finding isolated nodes
+
+```ts
+const components = getConnectedComponents(graph);
+const isolated = components.filter(c => c.length === 1);
+console.log('Isolated nodes:', isolated.map(c => c[0].id));
+```
+
+#### Largest component
+
+```ts
+const components = getConnectedComponents(graph);
+const largest = components.reduce((max, c) => 
+  c.length > max.length ? c : max
+, []);
+console.log('Largest component has', largest.length, 'nodes');
+```
+
+## getStronglyConnectedComponents
+
+```ts
+function getStronglyConnectedComponents<N>(
+  graph: Graph<N>
+): GraphNode<N>[][]
+```
+
+Returns strongly connected components using Tarjan's algorithm. Only meaningful for directed graphs.
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Finding cycles in directed graphs
+- Identifying feedback loops
+- Module dependency analysis
+- State machine analysis
+
+**Note:** In a strongly connected component, every node can reach every other node following directed edges.
+
+### Example
+
+```ts
+import { createGraph, getStronglyConnectedComponents } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'ba', sourceId: 'b', targetId: 'a' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+});
+
+const sccs = getStronglyConnectedComponents(graph);
+// [[nodeA, nodeB], [nodeC]]
+```
+
+### Use cases
+
+#### Finding cyclic dependencies
+
+```ts
+const sccs = getStronglyConnectedComponents(graph);
+const cycles = sccs.filter(scc => scc.length > 1);
+
+if (cycles.length > 0) {
+  console.log('Found cyclic dependencies:');
+  cycles.forEach(cycle => {
+    console.log(cycle.map(n => n.id).join(' <-> '));
+  });
+}
+```
+
+#### Condensation graph
+
+Create a DAG where each SCC becomes a single node:
+
+```ts
+const sccs = getStronglyConnectedComponents(graph);
+// Create a mapping from node ID to SCC index
+const nodeToSCC = new Map();
+sccs.forEach((scc, idx) => {
+  scc.forEach(node => nodeToSCC.set(node.id, idx));
+});
+
+// Find edges between different SCCs
+const condensedEdges = graph.edges
+  .filter(e => nodeToSCC.get(e.sourceId) !== nodeToSCC.get(e.targetId))
+  .map(e => ({
+    from: nodeToSCC.get(e.sourceId),
+    to: nodeToSCC.get(e.targetId),
+  }));
+```
+
+## isConnected
+
+```ts
+function isConnected(graph: Graph): boolean
+```
+
+Checks whether the graph is connected (all nodes reachable from any node).
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Validating graph connectivity
+- Checking if graph is a single component
+- Network connectivity testing
+
+### Example
+
+```ts
+import { createGraph, isConnected } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'ab', sourceId: 'a', targetId: 'b' }],
+});
+
+isConnected(graph); // true
+```
+
+### Checking before operations
+
+```ts
+if (!isConnected(graph)) {
+  console.warn('Graph has multiple components');
+  const components = getConnectedComponents(graph);
+  console.log(`Found ${components.length} separate components`);
+}
+```
+
+## Comparison
+
+| Algorithm | Graph Type | Finds | Complexity |
+|-----------|------------|-------|------------|
+| `getConnectedComponents` | Any (treats as undirected) | Nodes reachable by any path | O(V + E) |
+| `getStronglyConnectedComponents` | Directed | Nodes mutually reachable by directed paths | O(V + E) |
+| `isConnected` | Any (treats as undirected) | Whether graph is single component | O(V + E) |
+
+### Connected vs Strongly Connected
+
+**Connected:** In an undirected graph (or treating directed as undirected), there's a path between every pair of nodes.
+
+**Strongly Connected:** In a directed graph, there's a directed path from every node to every other node.
+
+Example:
+
+```ts
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'ab', sourceId: 'a', targetId: 'b' }],
+});
+
+// Connected: yes (treating edge as bidirectional)
+getConnectedComponents(graph); // [[nodeA, nodeB]]
+
+// Strongly connected: no (b cannot reach a)
+getStronglyConnectedComponents(graph); // [[nodeA], [nodeB]]
+```

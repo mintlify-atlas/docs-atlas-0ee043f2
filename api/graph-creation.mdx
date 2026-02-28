@@ -1,0 +1,372 @@
+---
+title: Graph Creation
+description: Factory functions for creating graphs
+---
+
+## createGraph
+
+Create a graph from a config. Resolves defaults for all fields.
+
+```typescript
+export function createGraph<N = any, E = any, G = any>(
+  config?: GraphConfig<N, E, G>,
+): Graph<N, E, G>
+```
+
+<ParamField path="config" type="GraphConfig<N, E, G>" optional>
+  Configuration for the graph. If omitted, creates an empty directed graph.
+  
+  <Expandable title="GraphConfig properties">
+    <ParamField path="id" type="string" optional>
+      Graph identifier. Defaults to empty string.
+    </ParamField>
+    
+    <ParamField path="type" type="'directed' | 'undirected'" optional>
+      Graph type. Defaults to `'directed'`.
+    </ParamField>
+    
+    <ParamField path="initialNodeId" type="string" optional>
+      ID of the initial node. Defaults to `null`.
+    </ParamField>
+    
+    <ParamField path="nodes" type="NodeConfig<N>[]" optional>
+      Array of node configurations. Defaults to empty array.
+    </ParamField>
+    
+    <ParamField path="edges" type="EdgeConfig<E>[]" optional>
+      Array of edge configurations. Defaults to empty array.
+    </ParamField>
+    
+    <ParamField path="data" type="G" optional>
+      Custom data attached to the graph.
+    </ParamField>
+    
+    <ParamField path="direction" type="'up' | 'down' | 'left' | 'right'" optional>
+      Layout direction for visual graphs.
+    </ParamField>
+    
+    <ParamField path="style" type="Record<string, string | number>" optional>
+      Custom style properties.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ResponseField name="graph" type="Graph<N, E, G>">
+  A fully-resolved graph object with all defaults applied.
+  
+  <Expandable title="Graph properties">
+    <ResponseField name="id" type="string">
+      Graph identifier (empty string if not provided).
+    </ResponseField>
+    
+    <ResponseField name="type" type="'directed' | 'undirected'">
+      Graph type.
+    </ResponseField>
+    
+    <ResponseField name="initialNodeId" type="string | null">
+      ID of the initial node, or `null` if not set.
+    </ResponseField>
+    
+    <ResponseField name="nodes" type="GraphNode<N>[]">
+      Array of resolved nodes.
+    </ResponseField>
+    
+    <ResponseField name="edges" type="GraphEdge<E>[]">
+      Array of resolved edges.
+    </ResponseField>
+    
+    <ResponseField name="data" type="G">
+      Custom data attached to the graph.
+    </ResponseField>
+    
+    <ResponseField name="direction" type="'up' | 'down' | 'left' | 'right'" optional>
+      Layout direction (if provided in config).
+    </ResponseField>
+    
+    <ResponseField name="style" type="Record<string, string | number>" optional>
+      Custom style properties (if provided in config).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Examples
+
+<CodeGroup>
+```typescript Empty graph
+const graph = createGraph();
+// graph.id === ''
+// graph.type === 'directed'
+// graph.nodes === []
+// graph.edges === []
+```
+
+```typescript With config
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+// graph.nodes.length === 2
+// graph.edges.length === 1
+```
+
+```typescript Full config
+const graph = createGraph({
+  id: 'g1',
+  type: 'undirected',
+  nodes: [{ id: 'a', label: 'A' }],
+  edges: [],
+  data: { name: 'test' },
+});
+// graph.id === 'g1'
+// graph.type === 'undirected'
+// graph.data === { name: 'test' }
+```
+</CodeGroup>
+
+---
+
+## createVisualGraph
+
+Create a visual graph with required position/size on all nodes and edges.
+
+```typescript
+export function createVisualGraph<N = any, E = any, G = any>(
+  config?: VisualGraphConfig<N, E, G>,
+): VisualGraph<N, E, G>
+```
+
+<ParamField path="config" type="VisualGraphConfig<N, E, G>" optional>
+  Configuration for the visual graph. Extends `GraphConfig` with visual-specific properties.
+  
+  <Expandable title="VisualGraphConfig properties">
+    Inherits all `GraphConfig` properties, plus:
+    
+    <ParamField path="direction" type="'up' | 'down' | 'left' | 'right'" optional>
+      Layout direction. Defaults to `'down'`.
+    </ParamField>
+    
+    <ParamField path="nodes" type="NodeConfig<N>[]" optional>
+      Nodes with position/size properties (x, y, width, height).
+    </ParamField>
+    
+    <ParamField path="edges" type="EdgeConfig<E>[]" optional>
+      Edges with position/size properties (x, y, width, height).
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ResponseField name="graph" type="VisualGraph<N, E, G>">
+  A visual graph with guaranteed position/size properties on all entities.
+  
+  <Expandable title="VisualGraph properties">
+    <ResponseField name="nodes" type="VisualNode<N>[]">
+      Array of nodes with required `x`, `y`, `width`, `height` properties (defaults to 0).
+    </ResponseField>
+    
+    <ResponseField name="edges" type="VisualEdge<E>[]">
+      Array of edges with required `x`, `y`, `width`, `height` properties (defaults to 0).
+    </ResponseField>
+    
+    <ResponseField name="direction" type="'up' | 'down' | 'left' | 'right'">
+      Layout direction (defaults to 'down').
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Examples
+
+<CodeGroup>
+```typescript Basic visual graph
+const graph = createVisualGraph({
+  nodes: [{ id: 'a', x: 0, y: 0, width: 100, height: 50 }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'a', x: 0, y: 0, width: 0, height: 0 }],
+});
+// graph.nodes[0].x === 0
+// graph.direction === 'down'
+```
+
+```typescript With defaults
+const graph = createVisualGraph({
+  nodes: [{ id: 'a' }], // Missing position/size
+  edges: [],
+});
+// graph.nodes[0].x === 0
+// graph.nodes[0].y === 0
+// graph.nodes[0].width === 0
+// graph.nodes[0].height === 0
+```
+</CodeGroup>
+
+---
+
+## GraphConfig
+
+Input configuration type for creating graphs. All fields are optional and have sensible defaults.
+
+```typescript
+export interface GraphConfig<
+  TNodeData = any,
+  TEdgeData = any,
+  TGraphData = any,
+> {
+  id?: string;
+  type?: 'directed' | 'undirected';
+  initialNodeId?: string;
+  nodes?: NodeConfig<TNodeData>[];
+  edges?: EdgeConfig<TEdgeData>[];
+  data?: TGraphData;
+  direction?: 'up' | 'down' | 'left' | 'right';
+  style?: Record<string, string | number>;
+}
+```
+
+### Type Parameters
+
+<ParamField path="TNodeData" type="any" optional>
+  Type of data attached to nodes. Defaults to `any`.
+</ParamField>
+
+<ParamField path="TEdgeData" type="any" optional>
+  Type of data attached to edges. Defaults to `any`.
+</ParamField>
+
+<ParamField path="TGraphData" type="any" optional>
+  Type of data attached to the graph. Defaults to `any`.
+</ParamField>
+
+---
+
+## NodeConfig
+
+Configuration type for creating or adding nodes.
+
+```typescript
+export interface NodeConfig<TNodeData = any> {
+  id: string;
+  parentId?: string | null;
+  initialNodeId?: string;
+  label?: string;
+  data?: TNodeData;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  shape?: string;
+  color?: string;
+  style?: Record<string, string | number>;
+}
+```
+
+<ParamField path="id" type="string" required>
+  Unique node identifier. Must be a non-empty string.
+</ParamField>
+
+<ParamField path="parentId" type="string | null" optional>
+  ID of the parent node for hierarchical graphs. Set to `null` for top-level nodes.
+</ParamField>
+
+<ParamField path="initialNodeId" type="string" optional>
+  ID of the initial child node (for compound state nodes).
+</ParamField>
+
+<ParamField path="label" type="string" optional>
+  Display label for the node. Defaults to empty string.
+</ParamField>
+
+<ParamField path="data" type="TNodeData" optional>
+  Custom data attached to the node.
+</ParamField>
+
+<ParamField path="x" type="number" optional>
+  X coordinate for visual positioning.
+</ParamField>
+
+<ParamField path="y" type="number" optional>
+  Y coordinate for visual positioning.
+</ParamField>
+
+<ParamField path="width" type="number" optional>
+  Width of the node.
+</ParamField>
+
+<ParamField path="height" type="number" optional>
+  Height of the node.
+</ParamField>
+
+<ParamField path="shape" type="string" optional>
+  Visual shape identifier (e.g., 'circle', 'rectangle').
+</ParamField>
+
+<ParamField path="color" type="string" optional>
+  Color value for styling.
+</ParamField>
+
+<ParamField path="style" type="Record<string, string | number>" optional>
+  Custom style properties.
+</ParamField>
+
+---
+
+## EdgeConfig
+
+Configuration type for creating or adding edges.
+
+```typescript
+export interface EdgeConfig<TEdgeData = any> {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  label?: string;
+  data?: TEdgeData;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  color?: string;
+  style?: Record<string, string | number>;
+}
+```
+
+<ParamField path="id" type="string" required>
+  Unique edge identifier. Must be a non-empty string.
+</ParamField>
+
+<ParamField path="sourceId" type="string" required>
+  ID of the source node. Must be a non-empty string and reference an existing node.
+</ParamField>
+
+<ParamField path="targetId" type="string" required>
+  ID of the target node. Must be a non-empty string and reference an existing node.
+</ParamField>
+
+<ParamField path="label" type="string" optional>
+  Display label for the edge. Defaults to empty string.
+</ParamField>
+
+<ParamField path="data" type="TEdgeData" optional>
+  Custom data attached to the edge.
+</ParamField>
+
+<ParamField path="x" type="number" optional>
+  X coordinate for visual positioning.
+</ParamField>
+
+<ParamField path="y" type="number" optional>
+  Y coordinate for visual positioning.
+</ParamField>
+
+<ParamField path="width" type="number" optional>
+  Width of the edge.
+</ParamField>
+
+<ParamField path="height" type="number" optional>
+  Height of the edge.
+</ParamField>
+
+<ParamField path="color" type="string" optional>
+  Color value for styling.
+</ParamField>
+
+<ParamField path="style" type="Record<string, string | number>" optional>
+  Custom style properties.
+</ParamField>

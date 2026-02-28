@@ -1,0 +1,235 @@
+---
+title: Sorting
+description: Topological sorting for directed acyclic graphs
+---
+
+Topological sorting orders nodes in a directed acyclic graph (DAG) such that for every edge from node A to node B, A appears before B in the ordering.
+
+## getTopologicalSort
+
+```ts
+function getTopologicalSort<N>(
+  graph: Graph<N>
+): GraphNode<N>[] | null
+```
+
+Returns a topological ordering of nodes, or `null` if the graph is cyclic.
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Build systems (compile dependencies in order)
+- Task scheduling (prerequisite tasks)
+- Package dependency resolution
+- State machine ordering
+- Course prerequisite planning
+
+**Algorithm:** Uses Kahn's algorithm (in-degree based BFS)
+
+### Example
+
+```ts
+import { createGraph, getTopologicalSort } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+});
+
+const sorted = getTopologicalSort(graph);
+// [nodeA, nodeB, nodeC]
+```
+
+### Detecting cycles
+
+```ts
+const sorted = getTopologicalSort(graph);
+
+if (sorted === null) {
+  console.error('Graph contains cycles - cannot sort topologically');
+} else {
+  console.log('Processing order:', sorted.map(n => n.id));
+}
+```
+
+## Use Cases
+
+### Build system
+
+Determine compilation order for source files with dependencies:
+
+```ts
+import { createGraph, getTopologicalSort } from '@statelyai/graph';
+
+const dependencies = createGraph({
+  nodes: [
+    { id: 'utils.ts' },
+    { id: 'types.ts' },
+    { id: 'api.ts' },
+    { id: 'app.ts' },
+  ],
+  edges: [
+    { id: '1', sourceId: 'types.ts', targetId: 'utils.ts' },
+    { id: '2', sourceId: 'types.ts', targetId: 'api.ts' },
+    { id: '3', sourceId: 'utils.ts', targetId: 'api.ts' },
+    { id: '4', sourceId: 'api.ts', targetId: 'app.ts' },
+  ],
+});
+
+const buildOrder = getTopologicalSort(dependencies);
+
+if (buildOrder) {
+  console.log('Build files in this order:');
+  buildOrder.forEach(node => console.log(`  - ${node.id}`));
+  // types.ts -> utils.ts -> api.ts -> app.ts
+} else {
+  console.error('Circular dependency detected!');
+}
+```
+
+### Task scheduling
+
+Schedule tasks respecting prerequisites:
+
+```ts
+const tasks = createGraph({
+  nodes: [
+    { id: 'design', data: { duration: 2 } },
+    { id: 'implement', data: { duration: 5 } },
+    { id: 'test', data: { duration: 3 } },
+    { id: 'deploy', data: { duration: 1 } },
+  ],
+  edges: [
+    { id: '1', sourceId: 'design', targetId: 'implement' },
+    { id: '2', sourceId: 'implement', targetId: 'test' },
+    { id: '3', sourceId: 'test', targetId: 'deploy' },
+  ],
+});
+
+const schedule = getTopologicalSort(tasks);
+
+if (schedule) {
+  let currentDay = 0;
+  schedule.forEach(task => {
+    console.log(`Day ${currentDay}: Start ${task.id}`);
+    currentDay += task.data.duration;
+  });
+}
+```
+
+### Course prerequisites
+
+Determine valid course ordering:
+
+```ts
+const courses = createGraph({
+  nodes: [
+    { id: 'CS101', data: { name: 'Intro to CS' } },
+    { id: 'CS201', data: { name: 'Data Structures' } },
+    { id: 'CS301', data: { name: 'Algorithms' } },
+    { id: 'CS401', data: { name: 'Advanced Algorithms' } },
+  ],
+  edges: [
+    { id: '1', sourceId: 'CS101', targetId: 'CS201' },
+    { id: '2', sourceId: 'CS201', targetId: 'CS301' },
+    { id: '3', sourceId: 'CS301', targetId: 'CS401' },
+  ],
+});
+
+const order = getTopologicalSort(courses);
+
+if (order) {
+  console.log('Take courses in this order:');
+  order.forEach((course, i) => {
+    console.log(`${i + 1}. ${course.id}: ${course.data.name}`);
+  });
+}
+```
+
+### Package manager
+
+Resolve installation order for package dependencies:
+
+```ts
+const packages = createGraph({
+  nodes: [
+    { id: 'lodash' },
+    { id: 'react' },
+    { id: 'react-dom' },
+    { id: 'my-app' },
+  ],
+  edges: [
+    { id: '1', sourceId: 'react', targetId: 'react-dom' },
+    { id: '2', sourceId: 'react', targetId: 'my-app' },
+    { id: '3', sourceId: 'react-dom', targetId: 'my-app' },
+    { id: '4', sourceId: 'lodash', targetId: 'my-app' },
+  ],
+});
+
+const installOrder = getTopologicalSort(packages);
+
+if (installOrder) {
+  console.log('Install packages in this order:');
+  installOrder.forEach(pkg => console.log(`  npm install ${pkg.id}`));
+} else {
+  console.error('Circular dependency detected in packages!');
+}
+```
+
+## Properties
+
+### Multiple valid orderings
+
+A DAG can have multiple valid topological orderings:
+
+```ts
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'c' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+});
+
+const sorted = getTopologicalSort(graph);
+// Could be [a, b, c] or [b, a, c] - both are valid
+```
+
+### DAGs only
+
+Topological sorting only works on directed acyclic graphs:
+
+```ts
+// This has a cycle: a -> b -> a
+const cyclic = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'ba', sourceId: 'b', targetId: 'a' },
+  ],
+});
+
+getTopologicalSort(cyclic); // null (cycle detected)
+```
+
+### Reverse postorder
+
+Topological sort is equivalent to the reverse of DFS postorder on a DAG:
+
+```ts
+import { getTopologicalSort, getPostorder } from '@statelyai/graph';
+
+const topo = getTopologicalSort(graph);
+const post = getPostorder(graph);
+
+// topo ≈ post.reverse() for DAGs
+```
+
+## Related Algorithms
+
+- [`isAcyclic()`](/api/algorithms/cycles#isacyclic) - Check if graph is a DAG before sorting
+- [`getPostorder()`](/api/algorithms/traversal#getpostorder) - DFS postorder (related to topological order)
+- [`getCycles()`](/api/algorithms/cycles#getcycles) - Find cycles that prevent topological sorting

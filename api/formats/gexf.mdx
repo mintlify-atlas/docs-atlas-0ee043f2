@@ -1,0 +1,429 @@
+---
+title: GEXF Format
+description: Convert graphs to and from GEXF (Graph Exchange XML Format)
+---
+
+# GEXF Format
+
+Convert graphs to and from [GEXF](https://gexf.net/) (Graph Exchange XML Format), designed for network analysis and visualization.
+
+## Features
+
+- **Compound graphs**: Via `@pid` attribute and nesting
+- **Viz module**: Color, position, size attributes
+- **Gephi compatible**: Primary format for Gephi network analysis
+- **Typed attributes**: Custom node/edge attributes
+- **Hierarchical nesting**: Supports nested node structures
+
+## Installation
+
+Requires the `fast-xml-parser` peer dependency:
+
+```bash
+pnpm add fast-xml-parser
+```
+
+## Import
+
+```ts
+import { toGEXF, fromGEXF, gexfConverter } from '@statelyai/graph';
+// Or from subpath:
+import { toGEXF } from '@statelyai/graph/gexf';
+```
+
+## `toGEXF()`
+
+Converts a graph to GEXF XML string.
+
+```ts
+import { createGraph, toGEXF } from '@statelyai/graph';
+
+const graph = createGraph({
+  id: 'Network',
+  nodes: [
+    { 
+      id: 'a', 
+      label: 'Node A', 
+      x: 0, 
+      y: 0,
+      width: 20,
+      color: '#ff6666'
+    },
+    { 
+      id: 'b', 
+      label: 'Node B', 
+      x: 100, 
+      y: 100,
+      parentId: 'container'
+    },
+    { id: 'container', label: 'Container' }
+  ],
+  edges: [
+    { id: 'e0', sourceId: 'a', targetId: 'b', label: 'link' }
+  ]
+});
+
+const xml = toGEXF(graph);
+```
+
+**Result:**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<gexf xmlns="http://gexf.net/1.3" xmlns:viz="http://gexf.net/1.3/viz" version="1.3">
+  <graph defaultedgetype="directed" id="Network">
+    <attributes class="node">
+      <attribute id="a_parentId" title="parentId" type="string"/>
+      <attribute id="a_initialNodeId" title="initialNodeId" type="string"/>
+      <attribute id="a_data" title="data" type="string"/>
+      <attribute id="a_shape" title="shape" type="string"/>
+    </attributes>
+    <attributes class="edge">
+      <attribute id="a_edgeData" title="data" type="string"/>
+    </attributes>
+    <nodes>
+      <node id="a" label="Node A">
+        <viz:color r="255" g="102" b="102"/>
+        <viz:position x="0" y="0"/>
+        <viz:size value="20"/>
+      </node>
+      <node id="b" label="Node B" pid="container">
+        <attvalues>
+          <attvalue for="a_parentId" value="container"/>
+        </attvalues>
+        <viz:position x="100" y="100"/>
+      </node>
+      <node id="container" label="Container"/>
+    </nodes>
+    <edges>
+      <edge id="e0" source="a" target="b" label="link"/>
+    </edges>
+  </graph>
+</gexf>
+```
+
+### Type Signature
+
+```ts
+function toGEXF(graph: Graph): string
+```
+
+### Parameters
+
+<ParamField path="graph" type="Graph" required>
+  The graph to convert to GEXF
+</ParamField>
+
+### Returns
+
+A GEXF 1.3 XML string.
+
+### Viz Module Properties
+
+| Graph Property | GEXF Viz Element | Notes |
+|----------------|------------------|-------|
+| `node.x, node.y` | `<viz:position x="..." y="..."/>` | Node position |
+| `node.width` or `node.height` | `<viz:size value="..."/>` | Node size (uses width, or height if width missing) |
+| `node.color` | `<viz:color r="..." g="..." b="..."/>` | RGB color from hex |
+| `edge.color` | `<viz:color r="..." g="..." b="..."/>` | Edge color |
+
+### Attribute Mapping
+
+| Graph Property | GEXF Attribute | Type |
+|----------------|----------------|------|
+| `node.parentId` | `@pid` + `a_parentId` | string |
+| `node.initialNodeId` | `a_initialNodeId` | string |
+| `node.data` | `a_data` | string (JSON) |
+| `node.shape` | `a_shape` | string |
+| `edge.data` | `a_edgeData` | string (JSON) |
+
+## `fromGEXF()`
+
+Parses a GEXF XML string into a graph.
+
+```ts
+import { fromGEXF } from '@statelyai/graph';
+
+const graph = fromGEXF(`
+  <?xml version="1.0"?>
+  <gexf xmlns="http://gexf.net/1.3" version="1.3">
+    <graph defaultedgetype="directed">
+      <nodes>
+        <node id="a" label="Node A"/>
+        <node id="b" label="Node B" pid="a"/>
+      </nodes>
+      <edges>
+        <edge id="e0" source="a" target="b"/>
+      </edges>
+    </graph>
+  </gexf>
+`);
+```
+
+### Type Signature
+
+```ts
+function fromGEXF(xml: string): Graph
+```
+
+### Parameters
+
+<ParamField path="xml" type="string" required>
+  GEXF XML string to parse
+</ParamField>
+
+### Returns
+
+A `Graph` object.
+
+### Hierarchy Handling
+
+GEXF supports three ways to express hierarchy:
+
+1. **`@pid` attribute** (GEXF 1.2+):
+   ```xml
+   <node id="child" pid="parent"/>
+   ```
+
+2. **Nested `<node>` elements** (GEXF 1.2+):
+   ```xml
+   <node id="parent">
+     <nodes>
+       <node id="child"/>
+     </nodes>
+   </node>
+   ```
+
+3. **Custom attribute**:
+   ```xml
+   <node id="child">
+     <attvalues>
+       <attvalue for="parentId" value="parent"/>
+     </attvalues>
+   </node>
+   ```
+
+The parser handles all three, with `@pid` taking precedence.
+
+### Error Handling
+
+```ts
+try {
+  const graph = fromGEXF('<invalid>');
+} catch (error) {
+  console.error(error.message);
+  // "GEXF: invalid XML — ..."
+}
+
+fromGEXF('text'); // Error: GEXF: missing <gexf> root element
+fromGEXF(123); // Error: GEXF: expected a string
+```
+
+## `gexfConverter`
+
+Bidirectional converter object.
+
+```ts
+import { createGraph, gexfConverter } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ sourceId: 'a', targetId: 'b' }]
+});
+
+const xml = gexfConverter.to(graph);
+const roundTripped = gexfConverter.from(xml);
+```
+
+### Type
+
+```ts
+const gexfConverter: GraphFormatConverter<string>
+```
+
+## Usage with Gephi
+
+GEXF is the native format for [Gephi](https://gephi.org/) network analysis:
+
+```ts
+import { toGEXF } from '@statelyai/graph';
+import { writeFileSync } from 'fs';
+
+const xml = toGEXF(graph);
+writeFileSync('network.gexf', xml);
+
+// Open in Gephi:
+// File → Open → network.gexf
+```
+
+## Color Conversion
+
+Colors are converted between hex and RGB:
+
+```ts
+import { createGraph, toGEXF } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'a', color: '#ff6666' },  // Red-ish
+    { id: 'b', color: '#66ff66' },  // Green-ish
+    { id: 'c', color: '#6666ff' }   // Blue-ish
+  ]
+});
+
+const xml = toGEXF(graph);
+// <viz:color r="255" g="102" b="102"/>
+// <viz:color r="102" g="255" b="102"/>
+// <viz:color r="102" g="102" b="255"/>
+```
+
+Parsing converts RGB back to hex:
+
+```ts
+import { fromGEXF } from '@statelyai/graph';
+
+const graph = fromGEXF(xml);
+graph.nodes[0].color; // '#ff6666'
+```
+
+## Compound Graph Example
+
+```ts
+import { createGraph, toGEXF } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'company', label: 'ACME Corp' },
+    { id: 'dept1', label: 'Engineering', parentId: 'company' },
+    { id: 'dept2', label: 'Sales', parentId: 'company' },
+    { id: 'alice', label: 'Alice', parentId: 'dept1' },
+    { id: 'bob', label: 'Bob', parentId: 'dept1' },
+    { id: 'charlie', label: 'Charlie', parentId: 'dept2' }
+  ],
+  edges: [
+    { sourceId: 'alice', targetId: 'bob', label: 'works with' },
+    { sourceId: 'alice', targetId: 'charlie', label: 'collaborates' }
+  ]
+});
+
+const xml = toGEXF(graph);
+// Uses @pid attribute for parent-child relationships
+```
+
+## Custom Data Example
+
+```ts
+import { createGraph, toGEXF, fromGEXF } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { 
+      id: 'person1',
+      label: 'Alice',
+      data: {
+        age: 30,
+        department: 'Engineering',
+        skills: ['TypeScript', 'React']
+      },
+      shape: 'circle',
+      color: '#4a90e2'
+    }
+  ]
+});
+
+const xml = toGEXF(graph);
+// Custom data is JSON-serialized in attributes
+
+const parsed = fromGEXF(xml);
+parsed.nodes[0].data; // { age: 30, department: 'Engineering', skills: [...] }
+parsed.nodes[0].shape; // 'circle'
+parsed.nodes[0].color; // '#4a90e2'
+```
+
+## Undirected Graphs
+
+```ts
+import { createGraph, toGEXF } from '@statelyai/graph';
+
+const graph = createGraph({
+  type: 'undirected',
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ sourceId: 'a', targetId: 'b' }]
+});
+
+const xml = toGEXF(graph);
+// <graph defaultedgetype="undirected">
+```
+
+## Tool Compatibility
+
+GEXF is supported by:
+
+- **Gephi** - Network analysis and visualization (primary tool)
+- **Sigma.js** - JavaScript graph visualization library
+- **NetworkX** - Python library (via `read_gexf`/`write_gexf`)
+- **Cytoscape** - Via GEXF import plugin
+
+## Advanced Example
+
+```ts
+import { createGraph, toGEXF } from '@statelyai/graph';
+import { writeFileSync } from 'fs';
+
+const graph = createGraph({
+  id: 'CitationNetwork',
+  nodes: [
+    { 
+      id: 'paper1',
+      label: 'Machine Learning Basics',
+      data: { year: 2020, citations: 150, authors: ['Smith', 'Jones'] },
+      x: 0,
+      y: 0,
+      width: 30,
+      color: '#e74c3c'
+    },
+    { 
+      id: 'paper2',
+      label: 'Deep Learning Advanced',
+      data: { year: 2021, citations: 89, authors: ['Johnson'] },
+      x: 100,
+      y: 50,
+      width: 25,
+      color: '#3498db'
+    },
+    { 
+      id: 'paper3',
+      label: 'Neural Networks Today',
+      data: { year: 2022, citations: 45, authors: ['Williams', 'Brown'] },
+      x: 200,
+      y: 0,
+      width: 20,
+      color: '#2ecc71'
+    }
+  ],
+  edges: [
+    { 
+      sourceId: 'paper2', 
+      targetId: 'paper1',
+      label: 'cites',
+      data: { context: 'builds upon' }
+    },
+    { 
+      sourceId: 'paper3', 
+      targetId: 'paper2',
+      label: 'cites',
+      data: { context: 'extends' }
+    }
+  ]
+});
+
+const xml = toGEXF(graph);
+writeFileSync('citations.gexf', xml);
+console.log('Open citations.gexf in Gephi for analysis');
+```
+
+## See Also
+
+- [GraphML Format](/api/formats/graphml) - Another XML-based format
+- [GML Format](/api/formats/other-formats#gml) - Text-based alternative
+- [Format Overview](/api/formats/overview) - All supported formats

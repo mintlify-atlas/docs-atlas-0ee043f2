@@ -1,0 +1,241 @@
+---
+title: Degree Queries
+description: Query node degree and connected edges
+---
+
+Functions for querying the degree of nodes and retrieving their connected edges.
+
+## getDegree
+
+Returns the total degree of a node (inDegree + outDegree). For undirected graphs, each edge is counted once.
+
+```ts
+function getDegree(graph: Graph, nodeId: string): number
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get degree for
+</ParamField>
+
+<ResponseField name="return" type="number">
+  Total number of edges connected to the node
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getDegree } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'c', targetId: 'b' },
+  ],
+});
+
+getDegree(graph, 'b'); // => 2
+getDegree(graph, 'a'); // => 1
+```
+</CodeGroup>
+
+---
+
+## getInDegree
+
+Returns the in-degree of a node (number of incoming edges).
+
+```ts
+function getInDegree(graph: Graph, nodeId: string): number
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get in-degree for
+</ParamField>
+
+<ResponseField name="return" type="number">
+  Number of incoming edges
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getInDegree } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+
+getInDegree(graph, 'b'); // => 1
+getInDegree(graph, 'a'); // => 0
+```
+</CodeGroup>
+
+---
+
+## getOutDegree
+
+Returns the out-degree of a node (number of outgoing edges).
+
+```ts
+function getOutDegree(graph: Graph, nodeId: string): number
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get out-degree for
+</ParamField>
+
+<ResponseField name="return" type="number">
+  Number of outgoing edges
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getOutDegree } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+
+getOutDegree(graph, 'a'); // => 1
+getOutDegree(graph, 'b'); // => 0
+```
+</CodeGroup>
+
+---
+
+## getEdgesOf
+
+Returns all edges (incoming + outgoing) connected to a node.
+
+```ts
+function getEdgesOf<E>(
+  graph: Graph<any, E>,
+  nodeId: string
+): GraphEdge<E>[]
+```
+
+<ParamField path="graph" type="Graph<any, E>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get edges for
+</ParamField>
+
+<ResponseField name="return" type="GraphEdge<E>[]">
+  Array of all edges connected to the node
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getEdgesOf } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'c', targetId: 'b' },
+  ],
+});
+
+const edges = getEdgesOf(graph, 'b');
+// => [edge e1, edge e2]
+```
+</CodeGroup>
+
+---
+
+## getInEdges
+
+Returns incoming edges to a node.
+
+```ts
+function getInEdges<E>(
+  graph: Graph<any, E>,
+  nodeId: string
+): GraphEdge<E>[]
+```
+
+<ParamField path="graph" type="Graph<any, E>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get incoming edges for
+</ParamField>
+
+<ResponseField name="return" type="GraphEdge<E>[]">
+  Array of incoming edges
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getInEdges } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+
+const inEdges = getInEdges(graph, 'b');
+// => [edge e1]
+
+const noInEdges = getInEdges(graph, 'a');
+// => []
+```
+</CodeGroup>
+
+---
+
+## getOutEdges
+
+Returns outgoing edges from a node.
+
+```ts
+function getOutEdges<E>(
+  graph: Graph<any, E>,
+  nodeId: string
+): GraphEdge<E>[]
+```
+
+<ParamField path="graph" type="Graph<any, E>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get outgoing edges for
+</ParamField>
+
+<ResponseField name="return" type="GraphEdge<E>[]">
+  Array of outgoing edges
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getOutEdges } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+
+const outEdges = getOutEdges(graph, 'a');
+// => [edge e1]
+
+const noOutEdges = getOutEdges(graph, 'b');
+// => []
+```
+</CodeGroup>

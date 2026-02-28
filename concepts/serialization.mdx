@@ -1,0 +1,507 @@
+---
+title: 'Serialization'
+description: 'JSON serialization and plain object structure'
+---
+
+## Overview
+
+A core design principle of `@statelyai/graph` is that **graphs are plain JSON-serializable objects**. No classes, no methods, no functions—just data.
+
+This means you can:
+
+- Serialize to JSON and back without losing information
+- Store graphs in databases, files, or localStorage
+- Send graphs over the network
+- Use graphs with any framework or library
+- Inspect graphs in debugger without custom formatters
+
+## Plain Objects
+
+Graphs are plain JavaScript objects that satisfy the `Graph` interface:
+
+```typescript
+import type { Graph } from '@statelyai/graph';
+
+// This is a valid graph (no factory function needed)
+const graph: Graph = {
+  id: 'my-graph',
+  type: 'directed',
+  initialNodeId: null,
+  nodes: [
+    {
+      type: 'node',
+      id: 'a',
+      label: 'Node A',
+      data: undefined
+    },
+    {
+      type: 'node',
+      id: 'b',
+      label: 'Node B',
+      data: undefined
+    }
+  ],
+  edges: [
+    {
+      type: 'edge',
+      id: 'e1',
+      sourceId: 'a',
+      targetId: 'b',
+      label: 'to B',
+      data: undefined
+    }
+  ],
+  data: undefined
+};
+```
+
+<Info>
+While you can create graphs with plain objects, using `createGraph()` is recommended because it handles default values and validation.
+</Info>
+
+## JSON Serialization
+
+Graphs serialize to JSON without any special handling:
+
+```typescript
+import { createGraph } from '@statelyai/graph';
+
+const graph = createGraph({
+  id: 'example',
+  nodes: [
+    { id: 'a', label: 'Node A', data: { value: 1 } },
+    { id: 'b', label: 'Node B', data: { value: 2 } }
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b', data: { weight: 10 } }
+  ]
+});
+
+// Serialize to JSON string
+const json = JSON.stringify(graph, null, 2);
+
+// Deserialize from JSON string
+const restored: Graph = JSON.parse(json);
+
+// Restored graph is identical
+console.log(restored.id); // 'example'
+console.log(restored.nodes.length); // 2
+```
+
+### Serialized Format
+
+Here's what a serialized graph looks like:
+
+```json
+{
+  "id": "example",
+  "type": "directed",
+  "initialNodeId": null,
+  "nodes": [
+    {
+      "type": "node",
+      "id": "a",
+      "label": "Node A",
+      "data": { "value": 1 }
+    },
+    {
+      "type": "node",
+      "id": "b",
+      "label": "Node B",
+      "data": { "value": 2 }
+    }
+  ],
+  "edges": [
+    {
+      "type": "edge",
+      "id": "e1",
+      "sourceId": "a",
+      "targetId": "b",
+      "label": "",
+      "data": { "weight": 10 }
+    }
+  ],
+  "data": null
+}
+```
+
+## No Hidden State
+
+Unlike class-based graph libraries, there's no hidden state:
+
+```typescript
+import { createGraph, getNode } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }]
+});
+
+// Everything is visible in the object
+console.log(graph);
+// {
+//   id: '',
+//   type: 'directed',
+//   nodes: [{ type: 'node', id: 'a', label: '', data: undefined }],
+//   edges: [],
+//   ...
+// }
+
+// Functions are separate from data
+const node = getNode(graph, 'a');
+```
+
+<Note>
+The library uses **transparent WeakMap-based indexing** for performance. Indexes are built on-demand and never serialized. When you deserialize a graph, indexes are automatically rebuilt on first access.
+</Note>
+
+## Working with GraphInstance
+
+The `GraphInstance` class is just a wrapper around a plain graph:
+
+```typescript
+import { GraphInstance } from '@statelyai/graph';
+
+const instance = new GraphInstance({
+  id: 'test',
+  nodes: [{ id: 'a' }]
+});
+
+// The underlying graph is a plain object
+const plainGraph = instance.graph;
+console.log(plainGraph);
+// { id: 'test', type: 'directed', nodes: [...], edges: [] }
+
+// toJSON() returns the plain graph
+const json = JSON.stringify(instance);
+const parsed = JSON.parse(json);
+
+// Wrap the restored graph
+const restored = GraphInstance.from(parsed);
+```
+
+## Data Constraints
+
+Since graphs must be JSON-serializable, avoid storing:
+
+- Functions
+- Class instances (unless they have `toJSON()`)
+- Symbols
+- `undefined` in arrays
+- Circular references
+
+### Valid Data
+
+```typescript
+const graph = createGraph({
+  nodes: [
+    {
+      id: 'a',
+      data: {
+        // All JSON-serializable
+        name: 'Alice',
+        age: 30,
+        active: true,
+        tags: ['user', 'admin'],
+        metadata: { role: 'developer' }
+      }
+    }
+  ]
+});
+```
+
+### Invalid Data
+
+```typescript
+// Don't do this - functions aren't serializable
+const graph = createGraph({
+  nodes: [
+    {
+      id: 'a',
+      data: {
+        onClick: () => console.log('clicked'), // ❌ Function
+        date: new Date(),                       // ⚠️ Serializes as string
+        regex: /test/,                          // ❌ Loses type
+        map: new Map()                          // ❌ Serializes as {}
+      }
+    }
+  ]
+});
+```
+
+<Warning>
+`Date` objects serialize to ISO strings. After deserialization, you'll need to manually convert them back:
+
+```typescript
+const graph = createGraph({
+  nodes: [{ id: 'a', data: { createdAt: new Date() } }]
+});
+
+const json = JSON.stringify(graph);
+const restored = JSON.parse(json);
+
+// Convert back to Date
+const createdAt = new Date(restored.nodes[0].data.createdAt);
+```
+</Warning>
+
+## Validation
+
+The library includes Zod schemas for validation:
+
+```typescript
+import { GraphSchema, NodeSchema, EdgeSchema } from '@statelyai/graph';
+
+const json = `{
+  "id": "test",
+  "type": "directed",
+  "initialNodeId": null,
+  "nodes": [],
+  "edges": [],
+  "data": null
+}`;
+
+const data = JSON.parse(json);
+const validated = GraphSchema.parse(data);
+// Throws if invalid
+```
+
+### Schema Definitions
+
+The schemas validate the core structure:
+
+```typescript
+// From src/schemas.ts
+export const NodeSchema = z.object({
+  type: z.literal('node'),
+  id: z.string(),
+  parentId: z.string().nullable(),
+  initialNodeId: z.string().nullable(),
+  label: z.string(),
+  data: z.any()
+});
+
+export const EdgeSchema = z.object({
+  type: z.literal('edge'),
+  id: z.string(),
+  sourceId: z.string(),
+  targetId: z.string(),
+  label: z.string(),
+  data: z.any()
+});
+
+export const GraphSchema = z.object({
+  id: z.string(),
+  type: z.enum(['directed', 'undirected']),
+  initialNodeId: z.string().nullable(),
+  nodes: z.array(NodeSchema),
+  edges: z.array(EdgeSchema),
+  data: z.any()
+});
+```
+
+<Note>
+The schemas validate the core required fields but don't validate optional visual properties like `x`, `y`, `width`, `height`, `shape`, `color`, or `style`.
+</Note>
+
+## Storage Examples
+
+### LocalStorage
+
+```typescript
+import { createGraph } from '@statelyai/graph';
+import type { Graph } from '@statelyai/graph';
+
+const graph = createGraph({
+  id: 'workflow',
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }]
+});
+
+// Save to localStorage
+localStorage.setItem('my-graph', JSON.stringify(graph));
+
+// Load from localStorage
+const json = localStorage.getItem('my-graph');
+if (json) {
+  const restored: Graph = JSON.parse(json);
+  console.log(restored.id); // 'workflow'
+}
+```
+
+### File System (Node.js)
+
+```typescript
+import { writeFileSync, readFileSync } from 'fs';
+import { createGraph } from '@statelyai/graph';
+import type { Graph } from '@statelyai/graph';
+
+const graph = createGraph({
+  id: 'saved-graph',
+  nodes: [{ id: 'a' }]
+});
+
+// Save to file
+writeFileSync('graph.json', JSON.stringify(graph, null, 2));
+
+// Load from file
+const json = readFileSync('graph.json', 'utf-8');
+const restored: Graph = JSON.parse(json);
+```
+
+### Database (MongoDB example)
+
+```typescript
+import { MongoClient } from 'mongodb';
+import { createGraph } from '@statelyai/graph';
+import type { Graph } from '@statelyai/graph';
+
+const client = new MongoClient('mongodb://localhost:27017');
+const db = client.db('myapp');
+const collection = db.collection('graphs');
+
+const graph = createGraph({
+  id: 'db-graph',
+  nodes: [{ id: 'a' }]
+});
+
+// MongoDB stores plain objects directly
+await collection.insertOne(graph);
+
+// Retrieve from database
+const restored = await collection.findOne({ id: 'db-graph' }) as Graph | null;
+if (restored) {
+  console.log(restored.nodes.length);
+}
+```
+
+### REST API
+
+```typescript
+import { createGraph } from '@statelyai/graph';
+import type { Graph } from '@statelyai/graph';
+
+const graph = createGraph({
+  id: 'api-graph',
+  nodes: [{ id: 'a' }]
+});
+
+// Send via POST
+await fetch('/api/graphs', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(graph)
+});
+
+// Receive via GET
+const response = await fetch('/api/graphs/api-graph');
+const restored: Graph = await response.json();
+```
+
+## Performance Considerations
+
+### Indexing
+
+The library uses **WeakMap-based indexes** for fast lookups:
+
+- Indexes are built on-demand (lazy)
+- Indexes are cached until the graph is mutated
+- Indexes are never serialized
+- After deserialization, indexes rebuild automatically on first access
+
+```typescript
+import { createGraph, getNode } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }]
+});
+
+// First lookup builds index
+getNode(graph, 'a'); // Builds index
+
+// Subsequent lookups use cached index
+getNode(graph, 'b'); // Uses cached index (O(1))
+
+// Serialize and restore
+const json = JSON.stringify(graph);
+const restored = JSON.parse(json);
+
+// First lookup rebuilds index
+getNode(restored, 'a'); // Rebuilds index
+```
+
+### Mutation Invalidation
+
+Mutations that change the arrays invalidate indexes:
+
+```typescript
+import { createGraph, addNode, getNode } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }]
+});
+
+getNode(graph, 'a'); // Builds index
+
+addNode(graph, { id: 'b' }); // Invalidates index
+
+getNode(graph, 'b'); // Rebuilds index
+```
+
+<Info>
+Invalidation is smart: adding nodes invalidates node indexes but not edge indexes. This keeps performance high even with frequent mutations.
+</Info>
+
+## Type Safety After Deserialization
+
+TypeScript can't verify JSON at runtime. Use type assertions carefully:
+
+```typescript
+import type { Graph } from '@statelyai/graph';
+import { GraphSchema } from '@statelyai/graph';
+
+const json = localStorage.getItem('graph');
+if (json) {
+  // Option 1: Type assertion (unsafe)
+  const graph: Graph = JSON.parse(json);
+  
+  // Option 2: Validation with Zod (safe)
+  const data = JSON.parse(json);
+  const graph = GraphSchema.parse(data); // Throws if invalid
+  
+  // Option 3: Type guard (safest)
+  const data = JSON.parse(json);
+  if (isValidGraph(data)) {
+    const graph: Graph = data;
+  }
+}
+
+function isValidGraph(data: unknown): data is Graph {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'id' in data &&
+    'type' in data &&
+    'nodes' in data &&
+    'edges' in data &&
+    Array.isArray((data as any).nodes) &&
+    Array.isArray((data as any).edges)
+  );
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Graphs" icon="diagram-project" href="/concepts/graphs">
+    Back to core graph concepts
+  </Card>
+  <Card title="Formats" icon="file-export" href="/api/formats/overview">
+    Export to other graph formats
+  </Card>
+  <Card title="Operations" icon="wrench" href="/api/mutations">
+    Mutate graphs with add/update/delete
+  </Card>
+  <Card title="Graph Creation" icon="plus" href="/api/graph-creation">
+    Create new graphs with factory functions
+  </Card>
+</CardGroup>

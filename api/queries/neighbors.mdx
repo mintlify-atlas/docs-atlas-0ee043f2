@@ -1,0 +1,247 @@
+---
+title: Neighbor Queries
+description: Query direct neighbors, successors, predecessors, and edges between nodes
+---
+
+Functions for finding nodes directly connected by edges.
+
+## getNeighbors
+
+Returns all neighbor nodes (successors + predecessors).
+
+```ts
+function getNeighbors<N>(
+  graph: Graph<N>,
+  nodeId: string
+): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get neighbors for
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of all neighboring nodes (both directions)
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getNeighbors } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'c', targetId: 'b' },
+  ],
+});
+
+const neighbors = getNeighbors(graph, 'b');
+// => [node a, node c]
+```
+</CodeGroup>
+
+---
+
+## getSuccessors
+
+Returns direct successor nodes (targets of outgoing edges).
+
+```ts
+function getSuccessors<N>(
+  graph: Graph<N>,
+  nodeId: string
+): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get successors for
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of nodes that this node has outgoing edges to
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getSuccessors } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'a', targetId: 'c' },
+  ],
+});
+
+const successors = getSuccessors(graph, 'a');
+// => [node b, node c]
+```
+</CodeGroup>
+
+---
+
+## getPredecessors
+
+Returns direct predecessor nodes (sources of incoming edges).
+
+```ts
+function getPredecessors<N>(
+  graph: Graph<N>,
+  nodeId: string
+): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get predecessors for
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of nodes that have outgoing edges to this node
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getPredecessors } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'c' },
+    { id: 'e2', sourceId: 'b', targetId: 'c' },
+  ],
+});
+
+const predecessors = getPredecessors(graph, 'c');
+// => [node a, node b]
+```
+</CodeGroup>
+
+---
+
+## getEdgeBetween
+
+Returns the edge from `sourceId` to `targetId`, or `undefined` if none exists. For undirected graphs, checks both directions.
+
+```ts
+function getEdgeBetween<E>(
+  graph: Graph<any, E>,
+  sourceId: string,
+  targetId: string
+): GraphEdge<E> | undefined
+```
+
+<ParamField path="graph" type="Graph<any, E>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="sourceId" type="string" required>
+  ID of the source node
+</ParamField>
+
+<ParamField path="targetId" type="string" required>
+  ID of the target node
+</ParamField>
+
+<ResponseField name="return" type="GraphEdge<E> | undefined">
+  The edge between the nodes, or `undefined` if none exists
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getEdgeBetween } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+
+const edge = getEdgeBetween(graph, 'a', 'b');
+// => edge e1
+
+const noEdge = getEdgeBetween(graph, 'b', 'a');
+// => undefined (directed graph)
+```
+</CodeGroup>
+
+---
+
+## getSources
+
+Returns all nodes with no incoming edges (inDegree = 0).
+
+```ts
+function getSources<N>(graph: Graph<N>): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of all source nodes
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getSources } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'b', targetId: 'c' },
+  ],
+});
+
+const sources = getSources(graph);
+// => [node a]
+```
+</CodeGroup>
+
+---
+
+## getSinks
+
+Returns all nodes with no outgoing edges (outDegree = 0).
+
+```ts
+function getSinks<N>(graph: Graph<N>): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of all sink nodes
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getSinks } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'b', targetId: 'c' },
+  ],
+});
+
+const sinks = getSinks(graph);
+// => [node c]
+```
+</CodeGroup>

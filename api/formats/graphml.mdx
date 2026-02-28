@@ -1,0 +1,331 @@
+---
+title: GraphML Format
+description: Convert graphs to and from GraphML XML format
+---
+
+# GraphML Format
+
+Convert graphs to and from [GraphML](http://graphml.graphdrawing.org/) XML format, a comprehensive XML-based graph markup language.
+
+## Features
+
+- **Full graph preservation**: All node/edge/graph data preserved
+- **Compound graphs**: Via `parentId` custom key
+- **Typed attributes**: String, double, int, boolean types
+- **Visual properties**: Position, size, shape, color
+- **Industry standard**: Supported by many graph tools
+
+## Installation
+
+Requires the `fast-xml-parser` peer dependency:
+
+```bash
+pnpm add fast-xml-parser
+```
+
+## Import
+
+```ts
+import { toGraphML, fromGraphML, graphmlConverter } from '@statelyai/graph';
+// Or from subpath:
+import { toGraphML } from '@statelyai/graph/graphml';
+```
+
+## `toGraphML()`
+
+Converts a graph to GraphML XML string.
+
+```ts
+import { createGraph, toGraphML } from '@statelyai/graph';
+
+const graph = createGraph({
+  id: 'MyGraph',
+  nodes: [
+    { id: 'a', label: 'Node A', x: 0, y: 0, width: 100, height: 50 },
+    { id: 'b', label: 'Node B', x: 200, y: 100, parentId: 'container' },
+    { id: 'container', label: 'Container' }
+  ],
+  edges: [
+    { id: 'e0', sourceId: 'a', targetId: 'b', label: 'connects' }
+  ],
+  data: { version: '1.0' }
+});
+
+const xml = toGraphML(graph);
+```
+
+**Result:**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+  <key id="label" for="all" attr.name="label" attr.type="string"/>
+  <key id="parentId" for="node" attr.name="parentId" attr.type="string"/>
+  <key id="data" for="all" attr.name="data" attr.type="string"/>
+  <key id="graphData" for="graph" attr.name="data" attr.type="string"/>
+  <key id="x" for="all" attr.name="x" attr.type="double"/>
+  <key id="y" for="all" attr.name="y" attr.type="double"/>
+  <key id="width" for="all" attr.name="width" attr.type="double"/>
+  <key id="height" for="all" attr.name="height" attr.type="double"/>
+  <key id="shape" for="node" attr.name="shape" attr.type="string"/>
+  <key id="color" for="all" attr.name="color" attr.type="string"/>
+  <graph id="MyGraph" edgedefault="directed">
+    <data key="graphData">{"version":"1.0"}</data>
+    <node id="a">
+      <data key="label">Node A</data>
+      <data key="x">0</data>
+      <data key="y">0</data>
+      <data key="width">100</data>
+      <data key="height">50</data>
+    </node>
+    <node id="b">
+      <data key="label">Node B</data>
+      <data key="parentId">container</data>
+      <data key="x">200</data>
+      <data key="y">100</data>
+    </node>
+    <node id="container">
+      <data key="label">Container</data>
+    </node>
+    <edge id="e0" source="a" target="b">
+      <data key="label">connects</data>
+    </edge>
+  </graph>
+</graphml>
+```
+
+### Type Signature
+
+```ts
+function toGraphML(graph: Graph): string
+```
+
+### Parameters
+
+<ParamField path="graph" type="Graph" required>
+  The graph to convert to GraphML
+</ParamField>
+
+### Returns
+
+A GraphML XML string.
+
+### Attribute Keys
+
+The converter automatically defines these keys:
+
+| Key ID | For | Attribute Name | Type | Description |
+|--------|-----|----------------|------|-------------|
+| `label` | all | `label` | string | Node/edge label |
+| `parentId` | node | `parentId` | string | Parent node ID |
+| `data` | all | `data` | string | JSON-serialized custom data |
+| `graphData` | graph | `data` | string | Graph-level data |
+| `x` | all | `x` | double | X position |
+| `y` | all | `y` | double | Y position |
+| `width` | all | `width` | double | Width |
+| `height` | all | `height` | double | Height |
+| `shape` | node | `shape` | string | Node shape |
+| `color` | all | `color` | string | Color |
+
+## `fromGraphML()`
+
+Parses a GraphML XML string into a graph.
+
+```ts
+import { fromGraphML } from '@statelyai/graph';
+
+const graph = fromGraphML(`
+  <?xml version="1.0" encoding="UTF-8"?>
+  <graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+    <key id="label" for="all" attr.name="label" attr.type="string"/>
+    <graph id="G" edgedefault="directed">
+      <node id="a">
+        <data key="label">Node A</data>
+      </node>
+      <node id="b">
+        <data key="label">Node B</data>
+      </node>
+      <edge id="e0" source="a" target="b"/>
+    </graph>
+  </graphml>
+`);
+```
+
+### Type Signature
+
+```ts
+function fromGraphML(xml: string): Graph
+```
+
+### Parameters
+
+<ParamField path="xml" type="string" required>
+  GraphML XML string to parse
+</ParamField>
+
+### Returns
+
+A `Graph` object.
+
+### Error Handling
+
+```ts
+try {
+  const graph = fromGraphML('<invalid>');
+} catch (error) {
+  console.error(error.message);
+  // "GraphML: invalid XML — ..."
+}
+
+fromGraphML('text'); // Error: GraphML: missing <graphml> root element
+fromGraphML(123); // Error: GraphML: expected a string
+```
+
+## `graphmlConverter`
+
+Bidirectional converter object.
+
+```ts
+import { createGraph, graphmlConverter } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ sourceId: 'a', targetId: 'b' }]
+});
+
+const xml = graphmlConverter.to(graph);
+const roundTripped = graphmlConverter.from(xml);
+```
+
+### Type
+
+```ts
+const graphmlConverter: GraphFormatConverter<string>
+```
+
+## Compound Graphs Example
+
+```ts
+import { createGraph, toGraphML } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'group1', label: 'Group 1' },
+    { id: 'group2', label: 'Group 2' },
+    { id: 'a', parentId: 'group1' },
+    { id: 'b', parentId: 'group1' },
+    { id: 'c', parentId: 'group2' }
+  ],
+  edges: [
+    { sourceId: 'a', targetId: 'b' },
+    { sourceId: 'b', targetId: 'c' }
+  ]
+});
+
+const xml = toGraphML(graph);
+// Nodes will have <data key="parentId"> elements
+```
+
+## Preserving Custom Data
+
+Custom node/edge data is JSON-serialized:
+
+```ts
+import { createGraph, toGraphML, fromGraphML } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'a', data: { priority: 1, tags: ['important'] } }
+  ]
+});
+
+const xml = toGraphML(graph);
+// <data key="data">{"priority":1,"tags":["important"]}</data>
+
+const parsed = fromGraphML(xml);
+parsed.nodes[0].data; // { priority: 1, tags: ['important'] }
+```
+
+## Undirected Graphs
+
+```ts
+import { createGraph, toGraphML } from '@statelyai/graph';
+
+const graph = createGraph({
+  type: 'undirected',
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ sourceId: 'a', targetId: 'b' }]
+});
+
+const xml = toGraphML(graph);
+// <graph edgedefault="undirected">
+```
+
+## Tool Compatibility
+
+GraphML is supported by:
+
+- **yEd** - Graph editor
+- **Gephi** - Network analysis
+- **Cytoscape** - Network visualization
+- **NetworkX** - Python library
+- **igraph** - R/Python library
+- **Neo4j** - Graph database (import)
+
+## Advanced Example
+
+```ts
+import { createGraph, toGraphML } from '@statelyai/graph';
+import { writeFileSync } from 'fs';
+
+const graph = createGraph({
+  id: 'SocialNetwork',
+  nodes: [
+    { 
+      id: 'alice', 
+      label: 'Alice',
+      data: { age: 30, city: 'NYC' },
+      color: '#FFB6C1'
+    },
+    { 
+      id: 'bob', 
+      label: 'Bob',
+      data: { age: 25, city: 'SF' },
+      color: '#87CEEB'
+    },
+    { 
+      id: 'charlie', 
+      label: 'Charlie',
+      data: { age: 35, city: 'NYC' },
+      color: '#90EE90'
+    }
+  ],
+  edges: [
+    { 
+      sourceId: 'alice', 
+      targetId: 'bob',
+      label: 'friends',
+      data: { since: 2020 }
+    },
+    { 
+      sourceId: 'bob', 
+      targetId: 'charlie',
+      label: 'colleagues',
+      data: { since: 2021 }
+    }
+  ],
+  data: { 
+    created: new Date().toISOString(),
+    version: '1.0'
+  }
+});
+
+const xml = toGraphML(graph);
+writeFileSync('social-network.graphml', xml);
+```
+
+## See Also
+
+- [GEXF Format](/api/formats/gexf) - Another XML-based format
+- [DOT Format](/api/formats/dot) - Text-based alternative
+- [Format Overview](/api/formats/overview) - All supported formats

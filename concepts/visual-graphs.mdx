@@ -1,0 +1,515 @@
+---
+title: 'Visual Graphs'
+description: 'Position, size, and visual properties for rendering'
+---
+
+## Overview
+
+**Visual graphs** extend regular graphs with required position and size properties on all nodes and edges. This makes them ready for rendering in canvas, SVG, or other visualization libraries.
+
+## Visual Graph Type
+
+The `VisualGraph` type is similar to `Graph`, but nodes and edges have **required** position/size fields:
+
+```typescript
+interface VisualGraph<TNodeData, TEdgeData, TGraphData> {
+  // Same as Graph
+  id: string;
+  type: 'directed' | 'undirected';
+  initialNodeId: string | null;
+  data: TGraphData;
+  
+  // Visual-specific
+  direction: 'up' | 'down' | 'left' | 'right'; // Required (not optional)
+  nodes: VisualNode<TNodeData>[];              // Required position/size
+  edges: VisualEdge<TEdgeData>[];              // Required position/size
+  style?: Record<string, string | number>;
+}
+```
+
+## Visual Node Type
+
+Extends `GraphNode` with required position and size:
+
+```typescript
+interface VisualNode<TNodeData = any> {
+  // From GraphNode
+  type: 'node';
+  id: string;
+  parentId?: string | null;
+  label: string;
+  data: TNodeData;
+  
+  // Required visual properties
+  x: number;        // Horizontal position (required)
+  y: number;        // Vertical position (required)
+  width: number;    // Width in pixels (required)
+  height: number;   // Height in pixels (required)
+  
+  // Optional visual properties
+  shape?: string;
+  color?: string;
+  style?: Record<string, string | number>;
+}
+```
+
+## Visual Edge Type
+
+Extends `GraphEdge` with required position and size:
+
+```typescript
+interface VisualEdge<TEdgeData = any> {
+  // From GraphEdge
+  type: 'edge';
+  id: string;
+  sourceId: string;
+  targetId: string;
+  label: string;
+  data: TEdgeData;
+  
+  // Required visual properties
+  x: number;        // Label/control point X (required)
+  y: number;        // Label/control point Y (required)
+  width: number;    // Label width (required)
+  height: number;   // Label height (required)
+  
+  // Optional visual properties
+  color?: string;
+  style?: Record<string, string | number>;
+}
+```
+
+## Creating Visual Graphs
+
+Use `createVisualGraph()` to create graphs with required visual properties:
+
+```typescript
+import { createVisualGraph } from '@statelyai/graph';
+
+const graph = createVisualGraph({
+  direction: 'down',
+  nodes: [
+    { id: 'a', x: 0, y: 0, width: 100, height: 50 },
+    { id: 'b', x: 150, y: 0, width: 100, height: 50 },
+    { id: 'c', x: 75, y: 100, width: 100, height: 50 }
+  ],
+  edges: [
+    {
+      id: 'e1',
+      sourceId: 'a',
+      targetId: 'c',
+      x: 50,     // Label position
+      y: 50,
+      width: 30, // Label bounds
+      height: 20
+    },
+    {
+      id: 'e2',
+      sourceId: 'b',
+      targetId: 'c',
+      x: 150,
+      y: 50,
+      width: 30,
+      height: 20
+    }
+  ]
+});
+
+// TypeScript knows these are numbers (not number | undefined)
+const nodeX: number = graph.nodes[0].x;
+const nodeWidth: number = graph.nodes[0].width;
+```
+
+### Default Values
+
+If you don't provide position/size, `createVisualGraph()` defaults them to `0`:
+
+```typescript
+const graph = createVisualGraph({
+  nodes: [{ id: 'a' }],
+  edges: []
+});
+
+// Defaults applied:
+graph.nodes[0].x;      // 0
+graph.nodes[0].y;      // 0
+graph.nodes[0].width;  // 0
+graph.nodes[0].height; // 0
+graph.direction;       // 'down'
+```
+
+## Direction
+
+The `direction` field provides a layout hint for rendering:
+
+- **`'down'`** — Top to bottom (default)
+- **`'up'`** — Bottom to top
+- **`'left'`** — Right to left
+- **`'right'`** — Left to right
+
+```typescript
+const graph = createVisualGraph({
+  direction: 'right', // Horizontal layout
+  nodes: [
+    { id: 'start', x: 0, y: 50 },
+    { id: 'end', x: 200, y: 50 }
+  ]
+});
+```
+
+<Info>
+When exporting to formats like DOT, the `direction` field is mapped to `rankdir`:
+- `'down'` → `TB` (top to bottom)
+- `'up'` → `BT` (bottom to top)
+- `'left'` → `RL` (right to left)
+- `'right'` → `LR` (left to right)
+</Info>
+
+## Visual Properties on Regular Graphs
+
+You can add visual properties to regular graphs created with `createGraph()`:
+
+```typescript
+import { createGraph } from '@statelyai/graph';
+
+const graph = createGraph({
+  direction: 'right',
+  nodes: [
+    { id: 'a', x: 10, y: 20, shape: 'ellipse', color: 'red' }
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'a', color: 'blue' }
+  ]
+});
+
+// Visual fields are preserved but optional
+graph.nodes[0].x;     // 10
+graph.nodes[0].shape; // 'ellipse'
+graph.direction;      // 'right'
+```
+
+The difference:
+
+- **`createGraph()`** — Visual properties are **optional** (`x?: number`)
+- **`createVisualGraph()`** — Position/size are **required** (`x: number`)
+
+## Shape Property
+
+Nodes can specify a `shape` for rendering:
+
+```typescript
+const graph = createVisualGraph({
+  nodes: [
+    { id: 'a', shape: 'rectangle' },
+    { id: 'b', shape: 'ellipse' },
+    { id: 'c', shape: 'diamond' },
+    { id: 'd', shape: 'hexagon' }
+  ]
+});
+```
+
+Common shapes:
+
+- `'rectangle'` / `'box'`
+- `'ellipse'` / `'circle'`
+- `'diamond'`
+- `'hexagon'`
+- Custom shapes (format-specific)
+
+<Note>
+The exact shape names depend on the rendering format. For example, DOT uses `'box'` instead of `'rectangle'`. Check the format converter documentation for details.
+</Note>
+
+## Color Property
+
+Both nodes and edges can specify colors:
+
+```typescript
+const graph = createVisualGraph({
+  nodes: [
+    { id: 'a', color: '#ff0000' },    // Hex color
+    { id: 'b', color: 'blue' },       // Named color
+    { id: 'c', color: 'rgb(0,255,0)' } // RGB
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b', color: 'red' },
+    { id: 'e2', sourceId: 'b', targetId: 'c', color: '#0000ff' }
+  ]
+});
+```
+
+How colors are used:
+
+- **Node color** — Fill color (mapped to `fillcolor` in DOT)
+- **Edge color** — Stroke color
+
+## Style Property
+
+For advanced styling, use the `style` object:
+
+```typescript
+const graph = createVisualGraph({
+  nodes: [
+    {
+      id: 'a',
+      style: {
+        'font-size': 14,
+        'font-weight': 'bold',
+        opacity: 0.8
+      }
+    }
+  ],
+  edges: [
+    {
+      id: 'e1',
+      sourceId: 'a',
+      targetId: 'a',
+      style: {
+        'stroke-width': 2,
+        'stroke-dasharray': '5,5'
+      }
+    }
+  ],
+  style: {
+    // Graph-level styles
+    backgroundColor: '#f5f5f5'
+  }
+});
+```
+
+<Warning>
+The `style` object is format-agnostic. How styles are interpreted depends on the export format and rendering library. Some formats may ignore unsupported properties.
+</Warning>
+
+## Visual Graphs with Algorithms
+
+`VisualGraph` extends `Graph`, so all algorithms work with visual graphs:
+
+```typescript
+import { createVisualGraph } from '@statelyai/graph';
+import { hasPath, getShortestPath } from '@statelyai/graph';
+
+const graph = createVisualGraph({
+  nodes: [
+    { id: 'a', x: 0, y: 0 },
+    { id: 'b', x: 100, y: 0 },
+    { id: 'c', x: 200, y: 0 }
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'b', targetId: 'c' }
+  ]
+});
+
+// All graph algorithms work
+hasPath(graph, 'a', 'c');           // true
+getShortestPath(graph, 'a', 'c');   // { source: node a, steps: [...] }
+```
+
+## Integration with Rendering Libraries
+
+Visual graphs are designed to work with visualization libraries:
+
+### XYFlow / React Flow
+
+```typescript
+import { toXYFlow } from '@statelyai/graph/formats/xyflow';
+
+const visualGraph = createVisualGraph({
+  nodes: [{ id: 'a', x: 0, y: 0, width: 100, height: 50 }],
+  edges: []
+});
+
+const xyflowData = toXYFlow(visualGraph);
+// Use with React Flow
+```
+
+### Cytoscape
+
+```typescript
+import { toCytoscape } from '@statelyai/graph/formats/cytoscape';
+
+const cytoscapeData = toCytoscape(visualGraph);
+// Use with Cytoscape.js
+```
+
+### D3
+
+```typescript
+import { toD3 } from '@statelyai/graph/formats/d3';
+
+const d3Data = toD3(visualGraph);
+// Use with D3 force simulation
+```
+
+## Layout Algorithms
+
+While the library doesn't include layout algorithms, you can use external tools:
+
+<CodeGroup>
+```typescript ELK (Hierarchical)
+import ELK from 'elkjs';
+import { createGraph } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }]
+});
+
+const elk = new ELK();
+const layout = await elk.layout({
+  id: 'root',
+  children: graph.nodes.map(n => ({ id: n.id, width: 100, height: 50 })),
+  edges: graph.edges.map(e => ({ id: e.id, sources: [e.sourceId], targets: [e.targetId] }))
+});
+
+// Apply positions to create visual graph
+const visualGraph = createVisualGraph({
+  nodes: graph.nodes.map((n, i) => ({
+    ...n,
+    x: layout.children[i].x,
+    y: layout.children[i].y,
+    width: layout.children[i].width,
+    height: layout.children[i].height
+  })),
+  edges: graph.edges
+});
+```
+
+```typescript Dagre (DAG)
+import dagre from 'dagre';
+import { createGraph, createVisualGraph } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'b', targetId: 'c' }
+  ]
+});
+
+const g = new dagre.graphlib.Graph();
+g.setGraph({ rankdir: 'TB' });
+
+graph.nodes.forEach(n => g.setNode(n.id, { width: 100, height: 50 }));
+graph.edges.forEach(e => g.setEdge(e.sourceId, e.targetId));
+
+dagre.layout(g);
+
+const visualGraph = createVisualGraph({
+  nodes: graph.nodes.map(n => ({
+    ...n,
+    x: g.node(n.id).x,
+    y: g.node(n.id).y,
+    width: 100,
+    height: 50
+  })),
+  edges: graph.edges
+});
+```
+</CodeGroup>
+
+## Example: Styled Workflow
+
+```typescript
+import { createVisualGraph } from '@statelyai/graph';
+
+const workflow = createVisualGraph({
+  id: 'approval-flow',
+  direction: 'down',
+  nodes: [
+    {
+      id: 'start',
+      label: 'Submit Request',
+      x: 150,
+      y: 0,
+      width: 120,
+      height: 60,
+      shape: 'ellipse',
+      color: '#4CAF50',
+      style: { 'font-weight': 'bold' }
+    },
+    {
+      id: 'review',
+      label: 'Manager Review',
+      x: 150,
+      y: 100,
+      width: 120,
+      height: 60,
+      shape: 'rectangle',
+      color: '#2196F3'
+    },
+    {
+      id: 'approved',
+      label: 'Approved',
+      x: 50,
+      y: 200,
+      width: 100,
+      height: 60,
+      shape: 'ellipse',
+      color: '#8BC34A'
+    },
+    {
+      id: 'rejected',
+      label: 'Rejected',
+      x: 250,
+      y: 200,
+      width: 100,
+      height: 60,
+      shape: 'ellipse',
+      color: '#F44336'
+    }
+  ],
+  edges: [
+    {
+      id: 'e1',
+      sourceId: 'start',
+      targetId: 'review',
+      label: 'submit',
+      x: 150,
+      y: 50,
+      width: 50,
+      height: 20
+    },
+    {
+      id: 'e2',
+      sourceId: 'review',
+      targetId: 'approved',
+      label: 'approve',
+      x: 100,
+      y: 150,
+      width: 60,
+      height: 20,
+      color: '#4CAF50'
+    },
+    {
+      id: 'e3',
+      sourceId: 'review',
+      targetId: 'rejected',
+      label: 'reject',
+      x: 200,
+      y: 150,
+      width: 50,
+      height: 20,
+      color: '#F44336'
+    }
+  ]
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Formats" icon="file-export" href="/api/formats/overview">
+    Export visual graphs to DOT, GraphML, Cytoscape, etc.
+  </Card>
+  <Card title="Serialization" icon="file-code" href="/concepts/serialization">
+    Learn about JSON serialization
+  </Card>
+  <Card title="Graphs" icon="diagram-project" href="/concepts/graphs">
+    Back to basic graph concepts
+  </Card>
+  <Card title="Hierarchical Graphs" icon="sitemap" href="/concepts/hierarchical-graphs">
+    Combine visual properties with hierarchy
+  </Card>
+</CardGroup>

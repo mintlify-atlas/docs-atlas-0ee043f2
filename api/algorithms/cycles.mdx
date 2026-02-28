@@ -1,0 +1,334 @@
+---
+title: Cycles
+description: Detecting and enumerating cycles in graphs
+---
+
+Cycle algorithms detect and enumerate cycles in graphs. A cycle is a path that starts and ends at the same node.
+
+## isAcyclic
+
+```ts
+function isAcyclic(graph: Graph): boolean
+```
+
+Checks whether the graph contains no cycles.
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Validating directed acyclic graphs (DAGs)
+- Checking for circular dependencies
+- Ensuring topological sorting is possible
+- Validating tree structures
+
+**Algorithm:** 
+- Directed graphs: DFS with color marking (white/gray/black)
+- Undirected graphs: DFS with parent tracking
+
+### Example
+
+```ts
+import { createGraph, isAcyclic } from '@statelyai/graph';
+
+const dag = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'ab', sourceId: 'a', targetId: 'b' }],
+});
+
+isAcyclic(dag); // true
+```
+
+### Detecting circular dependencies
+
+```ts
+const modules = createGraph({
+  nodes: [
+    { id: 'utils.ts' },
+    { id: 'api.ts' },
+    { id: 'auth.ts' },
+  ],
+  edges: [
+    { id: '1', sourceId: 'utils.ts', targetId: 'api.ts' },
+    { id: '2', sourceId: 'api.ts', targetId: 'auth.ts' },
+    { id: '3', sourceId: 'auth.ts', targetId: 'utils.ts' }, // cycle!
+  ],
+});
+
+if (!isAcyclic(modules)) {
+  console.error('Circular dependency detected!');
+}
+```
+
+### Validating before topological sort
+
+```ts
+import { isAcyclic, getTopologicalSort } from '@statelyai/graph';
+
+if (isAcyclic(graph)) {
+  const sorted = getTopologicalSort(graph);
+  console.log('Valid ordering:', sorted?.map(n => n.id));
+} else {
+  console.error('Cannot sort - graph contains cycles');
+}
+```
+
+## getCycles
+
+```ts
+function getCycles<N, E>(
+  graph: Graph<N, E>
+): GraphPath<N, E>[]
+```
+
+Returns all elementary cycles as an array of paths. Delegates to `genCycles()` internally.
+
+**Complexity:** Exponential (can be many cycles in a graph)
+
+**When to use:**
+- Finding all feedback loops
+- Analyzing circular dependencies
+- Graph verification
+- Identifying problematic cycles
+
+**Note:** Elementary cycles are simple cycles where no node is repeated except the start/end node.
+
+### Example
+
+```ts
+import { createGraph, getCycles } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'ba', sourceId: 'b', targetId: 'a' },
+  ],
+});
+
+const cycles = getCycles(graph);
+// One cycle: a -> b -> a
+cycles.forEach(cycle => {
+  const path = [cycle.source.id, ...cycle.steps.map(s => s.node.id)];
+  console.log('Cycle:', path.join(' -> '));
+});
+```
+
+### Finding feedback loops
+
+```ts
+const system = createGraph({
+  nodes: [
+    { id: 'sensor', data: { type: 'input' } },
+    { id: 'controller', data: { type: 'logic' } },
+    { id: 'actuator', data: { type: 'output' } },
+  ],
+  edges: [
+    { id: '1', sourceId: 'sensor', targetId: 'controller' },
+    { id: '2', sourceId: 'controller', targetId: 'actuator' },
+    { id: '3', sourceId: 'actuator', targetId: 'sensor' }, // feedback
+  ],
+});
+
+const cycles = getCycles(system);
+console.log(`Found ${cycles.length} feedback loop(s)`);
+
+cycles.forEach(cycle => {
+  const nodes = [cycle.source, ...cycle.steps.map(s => s.node)];
+  console.log('Feedback loop:', nodes.map(n => n.id).join(' -> '));
+});
+```
+
+### Undirected graphs
+
+For undirected graphs, cycles are found by treating each edge as bidirectional:
+
+```ts
+const graph = createGraph({
+  type: 'undirected',
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+    { id: 'ca', sourceId: 'c', targetId: 'a' },
+  ],
+});
+
+const cycles = getCycles(graph);
+// One cycle: a -> b -> c -> a
+```
+
+## genCycles
+
+```ts
+function genCycles<N, E>(
+  graph: Graph<N, E>
+): Generator<GraphPath<N, E>>
+```
+
+Lazily yields elementary cycles one at a time. Use `getCycles()` for the full array.
+
+**When to use:**
+- Processing cycles without loading all into memory
+- Early termination when finding problematic cycle
+- Large graphs with many cycles
+
+### Example
+
+```ts
+import { createGraph, genCycles } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'ba', sourceId: 'b', targetId: 'a' },
+  ],
+});
+
+for (const cycle of genCycles(graph)) {
+  console.log('Found cycle:', cycle.steps.map(s => s.node.id));
+  // ['b', 'a']
+}
+```
+
+### Finding first cycle
+
+```ts
+function findFirstCycle(graph) {
+  for (const cycle of genCycles(graph)) {
+    return cycle; // Return immediately
+  }
+  return null;
+}
+
+const firstCycle = findFirstCycle(graph);
+if (firstCycle) {
+  console.log('Found a cycle - graph is not acyclic');
+}
+```
+
+## Use Cases
+
+### Dependency validation
+
+Validate that module imports don't create circular dependencies:
+
+```ts
+import { createGraph, getCycles } from '@statelyai/graph';
+
+function validateDependencies(imports: Map<string, string[]>) {
+  const graph = createGraph({
+    nodes: Array.from(imports.keys()).map(id => ({ id })),
+    edges: Array.from(imports.entries()).flatMap(([source, targets]) =>
+      targets.map((target, i) => ({
+        id: `${source}-${target}-${i}`,
+        sourceId: source,
+        targetId: target,
+      }))
+    ),
+  });
+
+  const cycles = getCycles(graph);
+  
+  if (cycles.length > 0) {
+    console.error('Circular dependencies detected:');
+    cycles.forEach(cycle => {
+      const path = [cycle.source.id, ...cycle.steps.map(s => s.node.id)];
+      console.error('  ', path.join(' -> '));
+    });
+    return false;
+  }
+  
+  return true;
+}
+```
+
+### State machine analysis
+
+Find cycles in state transitions:
+
+```ts
+const stateMachine = createGraph({
+  nodes: [
+    { id: 'idle' },
+    { id: 'loading' },
+    { id: 'success' },
+    { id: 'error' },
+  ],
+  edges: [
+    { id: '1', sourceId: 'idle', targetId: 'loading' },
+    { id: '2', sourceId: 'loading', targetId: 'success' },
+    { id: '3', sourceId: 'loading', targetId: 'error' },
+    { id: '4', sourceId: 'error', targetId: 'idle' }, // retry cycle
+    { id: '5', sourceId: 'success', targetId: 'idle' }, // reset cycle
+  ],
+});
+
+const cycles = getCycles(stateMachine);
+console.log(`State machine has ${cycles.length} cycle(s)`);
+
+cycles.forEach(cycle => {
+  const states = [cycle.source.id, ...cycle.steps.map(s => s.node.id)];
+  console.log('Cycle:', states.join(' -> '));
+  // Example: idle -> loading -> error -> idle
+});
+```
+
+### Deadlock detection
+
+Find potential deadlocks in resource allocation:
+
+```ts
+const resources = createGraph({
+  nodes: [
+    { id: 'thread1', data: { type: 'thread' } },
+    { id: 'thread2', data: { type: 'thread' } },
+    { id: 'lock1', data: { type: 'lock' } },
+    { id: 'lock2', data: { type: 'lock' } },
+  ],
+  edges: [
+    // thread1 holds lock1, wants lock2
+    { id: '1', sourceId: 'lock1', targetId: 'thread1' },
+    { id: '2', sourceId: 'thread1', targetId: 'lock2' },
+    // thread2 holds lock2, wants lock1
+    { id: '3', sourceId: 'lock2', targetId: 'thread2' },
+    { id: '4', sourceId: 'thread2', targetId: 'lock1' },
+  ],
+});
+
+const cycles = getCycles(resources);
+if (cycles.length > 0) {
+  console.error('Potential deadlock detected!');
+  cycles.forEach(cycle => {
+    const entities = [cycle.source.id, ...cycle.steps.map(s => s.node.id)];
+    console.error('Deadlock cycle:', entities.join(' -> '));
+  });
+}
+```
+
+## Comparison with isAcyclic
+
+`isAcyclic()` is much faster than `getCycles()` when you only need to know if cycles exist:
+
+```ts
+import { isAcyclic, getCycles } from '@statelyai/graph';
+
+// Fast: O(V + E)
+if (!isAcyclic(graph)) {
+  console.log('Graph has cycles');
+}
+
+// Slow: exponential
+const cycles = getCycles(graph);
+if (cycles.length > 0) {
+  console.log('Graph has cycles');
+}
+```
+
+Use `getCycles()` only when you need to know what the cycles are, not just whether they exist.
+
+## Related Algorithms
+
+- [`getTopologicalSort()`](/api/algorithms/sorting#gettopologicalsort) - Only works on acyclic graphs
+- [`isTree()`](/api/algorithms/spanning-trees#istree) - Checks if graph is connected and acyclic
+- [`getStronglyConnectedComponents()`](/api/algorithms/components#getstronglyconnectedcomponents) - Components that contain cycles

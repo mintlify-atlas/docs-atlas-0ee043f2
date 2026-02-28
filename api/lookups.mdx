@@ -1,0 +1,373 @@
+---
+title: Lookups
+description: Functions for querying nodes and edges by ID
+---
+
+Lookup functions provide fast O(1) access to nodes and edges by ID using transparent internal indexing.
+
+## getNode
+
+Get a node by id, or `undefined` if not found.
+
+```typescript
+export function getNode<N>(
+  graph: Graph<N>,
+  id: string
+): GraphNode<N> | undefined
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to search.
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  ID of the node to retrieve.
+</ParamField>
+
+<ResponseField name="node" type="GraphNode<N> | undefined">
+  The node with the specified ID, or `undefined` if not found.
+  
+  <Expandable title="GraphNode properties">
+    <ResponseField name="type" type="'node'">
+      Entity type discriminator (always `'node'`).
+    </ResponseField>
+    
+    <ResponseField name="id" type="string">
+      Node identifier.
+    </ResponseField>
+    
+    <ResponseField name="parentId" type="string | null" optional>
+      ID of the parent node, or `null` for top-level nodes.
+    </ResponseField>
+    
+    <ResponseField name="initialNodeId" type="string | null" optional>
+      ID of the initial child node (for compound states).
+    </ResponseField>
+    
+    <ResponseField name="label" type="string">
+      Display label (empty string if not provided).
+    </ResponseField>
+    
+    <ResponseField name="data" type="N">
+      Custom data attached to the node.
+    </ResponseField>
+    
+    <ResponseField name="x" type="number" optional>
+      X coordinate.
+    </ResponseField>
+    
+    <ResponseField name="y" type="number" optional>
+      Y coordinate.
+    </ResponseField>
+    
+    <ResponseField name="width" type="number" optional>
+      Width.
+    </ResponseField>
+    
+    <ResponseField name="height" type="number" optional>
+      Height.
+    </ResponseField>
+    
+    <ResponseField name="shape" type="string" optional>
+      Visual shape identifier.
+    </ResponseField>
+    
+    <ResponseField name="color" type="string" optional>
+      Color value.
+    </ResponseField>
+    
+    <ResponseField name="style" type="Record<string, string | number>" optional>
+      Custom style properties.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Examples
+
+<CodeGroup>
+```typescript Found
+const graph = createGraph({ nodes: [{ id: 'a' }] });
+const node = getNode(graph, 'a');
+// node.id === 'a'
+// node.type === 'node'
+```
+
+```typescript Not found
+const graph = createGraph({ nodes: [{ id: 'a' }] });
+const node = getNode(graph, 'z');
+// node === undefined
+```
+
+```typescript Type-safe data
+interface NodeData { count: number; }
+const graph = createGraph<NodeData>({
+  nodes: [{ id: 'a', data: { count: 5 } }],
+});
+const node = getNode(graph, 'a');
+if (node) {
+  console.log(node.data.count); // TypeScript knows data.count exists
+}
+```
+</CodeGroup>
+
+---
+
+## getEdge
+
+Get an edge by id, or `undefined` if not found.
+
+```typescript
+export function getEdge<E>(
+  graph: Graph<any, E>,
+  id: string
+): GraphEdge<E> | undefined
+```
+
+<ParamField path="graph" type="Graph<any, E>" required>
+  The graph to search.
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  ID of the edge to retrieve.
+</ParamField>
+
+<ResponseField name="edge" type="GraphEdge<E> | undefined">
+  The edge with the specified ID, or `undefined` if not found.
+  
+  <Expandable title="GraphEdge properties">
+    <ResponseField name="type" type="'edge'">
+      Entity type discriminator (always `'edge'`).
+    </ResponseField>
+    
+    <ResponseField name="id" type="string">
+      Edge identifier.
+    </ResponseField>
+    
+    <ResponseField name="sourceId" type="string">
+      ID of the source node.
+    </ResponseField>
+    
+    <ResponseField name="targetId" type="string">
+      ID of the target node.
+    </ResponseField>
+    
+    <ResponseField name="label" type="string">
+      Display label (empty string if not provided).
+    </ResponseField>
+    
+    <ResponseField name="data" type="E">
+      Custom data attached to the edge.
+    </ResponseField>
+    
+    <ResponseField name="x" type="number" optional>
+      X coordinate.
+    </ResponseField>
+    
+    <ResponseField name="y" type="number" optional>
+      Y coordinate.
+    </ResponseField>
+    
+    <ResponseField name="width" type="number" optional>
+      Width.
+    </ResponseField>
+    
+    <ResponseField name="height" type="number" optional>
+      Height.
+    </ResponseField>
+    
+    <ResponseField name="color" type="string" optional>
+      Color value.
+    </ResponseField>
+    
+    <ResponseField name="style" type="Record<string, string | number>" optional>
+      Custom style properties.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Examples
+
+<CodeGroup>
+```typescript Found
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+const edge = getEdge(graph, 'e1');
+// edge.id === 'e1'
+// edge.sourceId === 'a'
+// edge.targetId === 'b'
+```
+
+```typescript Not found
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+const edge = getEdge(graph, 'z');
+// edge === undefined
+```
+
+```typescript Type-safe data
+interface EdgeData { weight: number; }
+const graph = createGraph<any, EdgeData>({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b', data: { weight: 10 } }],
+});
+const edge = getEdge(graph, 'e1');
+if (edge) {
+  console.log(edge.data.weight); // TypeScript knows data.weight exists
+}
+```
+</CodeGroup>
+
+---
+
+## hasNode
+
+Check if a node exists in the graph.
+
+```typescript
+export function hasNode(graph: Graph, id: string): boolean
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to search.
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  ID of the node to check.
+</ParamField>
+
+<ResponseField name="exists" type="boolean">
+  `true` if the node exists, `false` otherwise.
+</ResponseField>
+
+### Examples
+
+<CodeGroup>
+```typescript Exists
+const graph = createGraph({ nodes: [{ id: 'a' }] });
+hasNode(graph, 'a'); // true
+```
+
+```typescript Does not exist
+const graph = createGraph({ nodes: [{ id: 'a' }] });
+hasNode(graph, 'z'); // false
+```
+
+```typescript Guard pattern
+const graph = createGraph({ nodes: [{ id: 'a' }] });
+if (hasNode(graph, 'a')) {
+  const node = getNode(graph, 'a')!; // Safe to use !
+  console.log(node.label);
+}
+```
+
+```typescript Validation
+function addEdgeSafe(graph: Graph, config: EdgeConfig) {
+  if (!hasNode(graph, config.sourceId)) {
+    throw new Error(`Source node ${config.sourceId} not found`);
+  }
+  if (!hasNode(graph, config.targetId)) {
+    throw new Error(`Target node ${config.targetId} not found`);
+  }
+  return addEdge(graph, config);
+}
+```
+</CodeGroup>
+
+---
+
+## hasEdge
+
+Check if an edge exists in the graph.
+
+```typescript
+export function hasEdge(graph: Graph, id: string): boolean
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to search.
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  ID of the edge to check.
+</ParamField>
+
+<ResponseField name="exists" type="boolean">
+  `true` if the edge exists, `false` otherwise.
+</ResponseField>
+
+### Examples
+
+<CodeGroup>
+```typescript Exists
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+hasEdge(graph, 'e1'); // true
+```
+
+```typescript Does not exist
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+hasEdge(graph, 'z'); // false
+```
+
+```typescript Guard pattern
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+if (hasEdge(graph, 'e1')) {
+  const edge = getEdge(graph, 'e1')!; // Safe to use !
+  console.log(edge.label);
+}
+```
+
+```typescript Conditional update
+function updateEdgeIfExists(
+  graph: Graph,
+  id: string,
+  update: Partial<EdgeConfig>
+) {
+  if (hasEdge(graph, id)) {
+    updateEdge(graph, id, update);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## Performance
+
+All lookup functions use O(1) hash-based indexing:
+
+- **First access**: Index is built automatically (O(n) for nodes + edges)
+- **Subsequent accesses**: O(1) lookup from WeakMap cache
+- **After mutations**: Index is invalidated and rebuilt on next access
+
+The indexing is transparent and requires no manual cache management.
+
+### Example: Index lifecycle
+
+```typescript
+const graph = createGraph({ nodes: [{ id: 'a' }] });
+
+// First lookup: builds index (O(n))
+getNode(graph, 'a'); // → builds WeakMap index
+
+// Second lookup: uses cached index (O(1))
+getNode(graph, 'a'); // → instant lookup
+
+// Mutation: invalidates index
+addNode(graph, { id: 'b' });
+
+// Next lookup: rebuilds index (O(n))
+getNode(graph, 'b'); // → rebuilds index with new node
+```

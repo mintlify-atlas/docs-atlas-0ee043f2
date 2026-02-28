@@ -1,0 +1,163 @@
+---
+title: Format Conversion Overview
+description: Convert graphs to and from popular graph formats
+---
+
+# Format Conversion
+
+The `@statelyai/graph` library provides comprehensive support for converting graphs to and from popular graph formats. All converters follow a consistent bidirectional pattern with `to*` and `from*` functions.
+
+## Supported Formats
+
+<CardGroup cols={3}>
+  <Card title="Cytoscape.js" icon="network-wired" href="/api/formats/cytoscape">
+    JSON format for Cytoscape.js visualization
+  </Card>
+  <Card title="D3.js" icon="chart-network" href="/api/formats/d3">
+    Force-directed graph format for D3
+  </Card>
+  <Card title="DOT (Graphviz)" icon="diagram-project" href="/api/formats/dot">
+    Text format for Graphviz rendering
+  </Card>
+  <Card title="GraphML" icon="code" href="/api/formats/graphml">
+    XML-based graph markup language
+  </Card>
+  <Card title="GEXF" icon="file-code" href="/api/formats/gexf">
+    Graph Exchange XML Format
+  </Card>
+  <Card title="Mermaid" icon="diagram-next" href="/api/formats/mermaid">
+    Diagram-as-code with 7 diagram types
+  </Card>
+  <Card title="Other Formats" icon="list" href="/api/formats/other-formats">
+    JGF, GML, TGF, edge lists, and more
+  </Card>
+</CardGroup>
+
+## Format Comparison
+
+| Format | Type | Compound Graphs | Visual Data | Peer Dependency |
+|--------|------|-----------------|-------------|----------------|
+| **Cytoscape.js** | JSON | ✅ Yes | ✅ Position, color, shape | None |
+| **D3.js** | JSON | ❌ No | ✅ Position, color | None |
+| **DOT** | Text | ✅ Yes (subgraphs) | ✅ Color, shape, layout | `dotparser` |
+| **GraphML** | XML | ✅ Yes | ✅ Full visual support | `fast-xml-parser` |
+| **GEXF** | XML | ✅ Yes | ✅ Full visual + viz module | `fast-xml-parser` |
+| **JGF** | JSON | ✅ Yes | ✅ Full visual support | None |
+| **GML** | Text | ✅ Yes (nested) | ✅ Graphics block | None |
+| **TGF** | Text | ❌ No | ❌ Labels only | None |
+| **Edge List** | Array | ❌ No | ❌ No metadata | None |
+| **Adjacency List** | Object | ❌ No | ❌ No metadata | None |
+| **XYFlow** | JSON | ✅ Yes | ✅ Position, size | `@xyflow/system` |
+| **Mermaid** | Text | Varies by type | ✅ Limited | None |
+
+## Creating Custom Converters
+
+### `createFormatConverter()`
+
+Create a bidirectional converter from a pair of `to`/`from` functions.
+
+```ts
+import { createFormatConverter } from '@statelyai/graph';
+
+const yamlConverter = createFormatConverter(
+  (graph) => toYAML(graph),
+  (yaml) => fromYAML(yaml),
+);
+
+const yaml = yamlConverter.to(graph);
+const graph = yamlConverter.from(yaml);
+```
+
+#### Type Signature
+
+```ts
+function createFormatConverter<TSerial>(
+  to: (graph: Graph) => TSerial,
+  from: (input: TSerial) => Graph,
+): GraphFormatConverter<TSerial>
+```
+
+#### Parameters
+
+<ParamField path="to" type="function" required>
+  Function that converts a `Graph` to the serialized format
+</ParamField>
+
+<ParamField path="from" type="function" required>
+  Function that parses the serialized format back into a `Graph`
+</ParamField>
+
+#### Returns
+
+A `GraphFormatConverter<TSerial>` object with `to` and `from` methods.
+
+## Converter Pattern
+
+All format converters follow this pattern:
+
+```ts
+// Standalone functions
+const json = toCytoscapeJSON(graph);
+const graph = fromCytoscapeJSON(json);
+
+// Or use the converter object
+const json = cytoscapeConverter.to(graph);
+const graph = cytoscapeConverter.from(json);
+```
+
+## Peer Dependencies
+
+Some format converters require peer dependencies:
+
+```bash
+# For DOT format
+pnpm add dotparser
+
+# For GraphML and GEXF formats
+pnpm add fast-xml-parser
+
+# For XYFlow format
+pnpm add @xyflow/system
+```
+
+All peer dependencies are optional and only needed when using the corresponding format.
+
+## Installation
+
+Format converters are included in the main package:
+
+```bash
+pnpm add @statelyai/graph
+```
+
+Then import from subpaths:
+
+```ts
+import { toCytoscapeJSON, fromCytoscapeJSON } from '@statelyai/graph';
+// Or from format-specific paths:
+import { toCytoscapeJSON } from '@statelyai/graph/cytoscape';
+```
+
+## Error Handling
+
+All `from*` parsers validate input and throw descriptive errors:
+
+```ts
+try {
+  const graph = fromDOT(invalidDotString);
+} catch (error) {
+  console.error(error.message);
+  // "DOT: parse error — unexpected token"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Cytoscape.js Format" icon="network-wired" href="/api/formats/cytoscape">
+    Learn about Cytoscape.js conversion
+  </Card>
+  <Card title="Mermaid Diagrams" icon="diagram-next" href="/api/formats/mermaid">
+    Convert to/from Mermaid diagrams
+  </Card>
+</CardGroup>

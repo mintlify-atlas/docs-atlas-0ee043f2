@@ -1,0 +1,417 @@
+---
+title: Hierarchy Queries
+description: Query parent-child relationships and hierarchical structure in compound graphs
+---
+
+Functions for navigating the hierarchical structure of graphs with parent-child relationships.
+
+## getChildren
+
+Returns direct children of a node in the hierarchy. Pass `null` to get root-level nodes.
+
+```ts
+function getChildren<N>(
+  graph: Graph<N>,
+  nodeId: string | null
+): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string | null" required>
+  ID of the parent node, or `null` for root-level nodes
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of child nodes
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getChildren } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent' },
+    { id: 'child1', parentId: 'parent' },
+    { id: 'child2', parentId: 'parent' },
+  ],
+});
+
+const children = getChildren(graph, 'parent');
+// => [node child1, node child2]
+
+const roots = getChildren(graph, null);
+// => [node parent]
+```
+</CodeGroup>
+
+---
+
+## getParent
+
+Returns the parent node in the hierarchy, or `undefined` if the node is at root level.
+
+```ts
+function getParent<N>(
+  graph: Graph<N>,
+  nodeId: string
+): GraphNode<N> | undefined
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get parent for
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N> | undefined">
+  The parent node, or `undefined` if none
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getParent } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent' },
+    { id: 'child', parentId: 'parent' },
+  ],
+});
+
+const parent = getParent(graph, 'child');
+// => node parent
+
+const noParent = getParent(graph, 'parent');
+// => undefined
+```
+</CodeGroup>
+
+---
+
+## getAncestors
+
+Returns all ancestors from the node up to the root (nearest parent first).
+
+```ts
+function getAncestors<N>(
+  graph: Graph<N>,
+  nodeId: string
+): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get ancestors for
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of ancestor nodes, ordered from nearest to furthest (root last)
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getAncestors } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'mid', parentId: 'root' },
+    { id: 'leaf', parentId: 'mid' },
+  ],
+});
+
+const ancestors = getAncestors(graph, 'leaf');
+// => [node mid, node root]
+```
+</CodeGroup>
+
+---
+
+## getDescendants
+
+Returns all descendants recursively (depth-first).
+
+```ts
+function getDescendants<N>(
+  graph: Graph<N>,
+  nodeId: string
+): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get descendants for
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of all descendant nodes (children, grandchildren, etc.)
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getDescendants } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'child', parentId: 'root' },
+    { id: 'grandchild', parentId: 'child' },
+  ],
+});
+
+const descendants = getDescendants(graph, 'root');
+// => [node child, node grandchild]
+```
+</CodeGroup>
+
+---
+
+## getSiblings
+
+Returns sibling nodes (same parentId, excluding the node itself).
+
+```ts
+function getSiblings<N>(
+  graph: Graph<N>,
+  nodeId: string
+): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get siblings for
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of sibling nodes
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getSiblings } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent' },
+    { id: 'a', parentId: 'parent' },
+    { id: 'b', parentId: 'parent' },
+    { id: 'c', parentId: 'parent' },
+  ],
+});
+
+const siblings = getSiblings(graph, 'a');
+// => [node b, node c]
+```
+</CodeGroup>
+
+---
+
+## getRoots
+
+Returns all root nodes (nodes with no parent).
+
+```ts
+function getRoots<N>(graph: Graph<N>): GraphNode<N>[]
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N>[]">
+  Array of all root-level nodes
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getRoots } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root1' },
+    { id: 'root2' },
+    { id: 'child', parentId: 'root1' },
+  ],
+});
+
+const roots = getRoots(graph);
+// => [node root1, node root2]
+```
+</CodeGroup>
+
+---
+
+## getDepth
+
+Returns the depth of a node in the hierarchy (root = 0). Returns -1 if the node is not found.
+
+```ts
+function getDepth(graph: Graph, nodeId: string): number
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to get depth for
+</ParamField>
+
+<ResponseField name="return" type="number">
+  Depth level (0 for root, -1 if not found)
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getDepth } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'child', parentId: 'root' },
+    { id: 'grandchild', parentId: 'child' },
+  ],
+});
+
+getDepth(graph, 'root');       // => 0
+getDepth(graph, 'child');      // => 1
+getDepth(graph, 'grandchild'); // => 2
+```
+</CodeGroup>
+
+---
+
+## getLCA
+
+Finds the Least Common Ancestor — the deepest proper ancestor shared by all given nodes. A proper ancestor excludes the input nodes themselves.
+
+```ts
+function getLCA<N>(
+  graph: Graph<N>,
+  ...nodeIds: string[]
+): GraphNode<N> | undefined
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeIds" type="string[]" required>
+  IDs of nodes to find common ancestor for
+</ParamField>
+
+<ResponseField name="return" type="GraphNode<N> | undefined">
+  The lowest common ancestor node, or `undefined` if none
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, getLCA } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'a', parentId: 'root' },
+    { id: 'b', parentId: 'root' },
+    { id: 'a1', parentId: 'a' },
+  ],
+});
+
+const lca1 = getLCA(graph, 'a1', 'b');
+// => node root
+
+const lca2 = getLCA(graph, 'a', 'b');
+// => node root
+```
+</CodeGroup>
+
+---
+
+## isCompound
+
+Returns whether a node has children (is a compound/group node).
+
+```ts
+function isCompound(graph: Graph, nodeId: string): boolean
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to check
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  `true` if the node has children, `false` otherwise
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, isCompound } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent' },
+    { id: 'child', parentId: 'parent' },
+  ],
+});
+
+isCompound(graph, 'parent'); // => true
+isCompound(graph, 'child');  // => false
+```
+</CodeGroup>
+
+---
+
+## isLeaf
+
+Returns whether a node has no children (is a leaf/atomic node).
+
+```ts
+function isLeaf(graph: Graph, nodeId: string): boolean
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to query
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to check
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  `true` if the node has no children, `false` otherwise
+</ResponseField>
+
+<CodeGroup>
+```ts Example
+import { createGraph, isLeaf } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent' },
+    { id: 'child', parentId: 'parent' },
+  ],
+});
+
+isLeaf(graph, 'child');  // => true
+isLeaf(graph, 'parent'); // => false
+```
+</CodeGroup>

@@ -1,0 +1,390 @@
+---
+title: 'Graphs'
+description: 'Core graph data structure and concepts'
+---
+
+## Overview
+
+The `@statelyai/graph` library uses **plain JSON-serializable objects** to represent graphs. There are no classes required—you can create graphs using simple object literals or factory functions.
+
+## Basic Structure
+
+A graph consists of three main components:
+
+<CardGroup cols={3}>
+  <Card title="Nodes" icon="circle">
+    Vertices in the graph with an ID and optional data
+  </Card>
+  <Card title="Edges" icon="arrow-right">
+    Connections between nodes with source and target
+  </Card>
+  <Card title="Graph" icon="diagram-project">
+    Container with metadata and configuration
+  </Card>
+</CardGroup>
+
+## Graph Type
+
+The `Graph` interface defines the core structure:
+
+```typescript
+interface Graph<TNodeData = any, TEdgeData = any, TGraphData = any> {
+  id: string;
+  type: 'directed' | 'undirected';
+  initialNodeId: string | null;
+  nodes: GraphNode<TNodeData>[];
+  edges: GraphEdge<TEdgeData>[];
+  data: TGraphData;
+  direction?: 'up' | 'down' | 'left' | 'right';
+  style?: Record<string, string | number>;
+}
+```
+
+### Properties
+
+- **`id`** — Unique identifier for the graph
+- **`type`** — Either `'directed'` or `'undirected'`
+- **`initialNodeId`** — Starting node for traversals (nullable)
+- **`nodes`** — Array of graph nodes
+- **`edges`** — Array of graph edges
+- **`data`** — Custom metadata attached to the graph
+- **`direction`** — Layout direction hint for rendering
+- **`style`** — Custom styles for visual rendering
+
+## Node Type
+
+Nodes represent vertices in the graph:
+
+```typescript
+interface GraphNode<TNodeData = any> {
+  type: 'node';
+  id: string;
+  parentId?: string | null;
+  initialNodeId?: string | null;
+  label: string;
+  data: TNodeData;
+  // Optional visual properties
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  shape?: string;
+  color?: string;
+  style?: Record<string, string | number>;
+}
+```
+
+### Properties
+
+- **`type`** — Always `'node'` for type discrimination
+- **`id`** — Unique identifier (required, non-empty string)
+- **`parentId`** — Parent node ID for hierarchical graphs (see [Hierarchical Graphs](/concepts/hierarchical-graphs))
+- **`initialNodeId`** — Starting child node for compound nodes
+- **`label`** — Display label (defaults to empty string)
+- **`data`** — Custom data payload
+- **Visual properties** — Optional position, size, shape, color, and styles
+
+## Edge Type
+
+Edges represent connections between nodes:
+
+```typescript
+interface GraphEdge<TEdgeData = any> {
+  type: 'edge';
+  id: string;
+  sourceId: string;
+  targetId: string;
+  label: string;
+  data: TEdgeData;
+  // Optional visual properties
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  color?: string;
+  style?: Record<string, string | number>;
+}
+```
+
+### Properties
+
+- **`type`** — Always `'edge'` for type discrimination
+- **`id`** — Unique identifier (required, non-empty string)
+- **`sourceId`** — ID of the source node
+- **`targetId`** — ID of the target node
+- **`label`** — Display label (defaults to empty string)
+- **`data`** — Custom data payload
+- **Visual properties** — Optional position, size, color, and styles
+
+## Creating Graphs
+
+### Using the Factory Function
+
+The recommended way to create graphs is with `createGraph()`:
+
+```typescript
+import { createGraph } from '@statelyai/graph';
+
+const graph = createGraph({
+  id: 'my-graph',
+  type: 'directed',
+  nodes: [
+    { id: 'a', label: 'Start' },
+    { id: 'b', label: 'Middle' },
+    { id: 'c', label: 'End' }
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b', label: 'next' },
+    { id: 'e2', sourceId: 'b', targetId: 'c', label: 'next' }
+  ]
+});
+```
+
+### Using Plain Objects
+
+Since graphs are plain objects, you can create them with literals:
+
+```typescript
+import type { Graph } from '@statelyai/graph';
+
+const graph: Graph = {
+  id: 'manual',
+  type: 'directed',
+  initialNodeId: null,
+  nodes: [
+    {
+      type: 'node',
+      id: 'a',
+      label: 'Node A',
+      data: undefined
+    }
+  ],
+  edges: [],
+  data: undefined
+};
+```
+
+<Note>
+Using `createGraph()` is recommended because it handles default values automatically. For example, `label` defaults to `''`, `type` defaults to `'directed'`, and visual properties are only included if provided.
+</Note>
+
+## Config vs. Primary Types
+
+The library provides two sets of types:
+
+### Config Types (Input)
+
+Lenient types for creating graphs—most fields are optional:
+
+```typescript
+interface GraphConfig<TNodeData, TEdgeData, TGraphData> {
+  id?: string;
+  type?: 'directed' | 'undirected';
+  nodes?: NodeConfig<TNodeData>[];
+  edges?: EdgeConfig<TEdgeData>[];
+  // ...
+}
+
+interface NodeConfig<TNodeData> {
+  id: string; // Required
+  label?: string;
+  data?: TNodeData;
+  // ...
+}
+
+interface EdgeConfig<TEdgeData> {
+  id: string; // Required
+  sourceId: string; // Required
+  targetId: string; // Required
+  label?: string;
+  data?: TEdgeData;
+  // ...
+}
+```
+
+### Primary Types (Output)
+
+Strict types with all fields resolved:
+
+```typescript
+interface Graph<TNodeData, TEdgeData, TGraphData> {
+  id: string; // Always present
+  type: 'directed' | 'undirected'; // Always present
+  nodes: GraphNode<TNodeData>[]; // Always array
+  edges: GraphEdge<TEdgeData>[]; // Always array
+  // ...
+}
+```
+
+## TypeScript Generics
+
+All graph types support three generic parameters:
+
+```typescript
+Graph<TNodeData, TEdgeData, TGraphData>
+```
+
+- **`TNodeData`** — Type of `node.data`
+- **`TEdgeData`** — Type of `edge.data`
+- **`TGraphData`** — Type of `graph.data`
+
+### Example with Custom Data
+
+```typescript
+interface NodeData {
+  value: number;
+  visited: boolean;
+}
+
+interface EdgeData {
+  weight: number;
+}
+
+const graph = createGraph<NodeData, EdgeData>({
+  nodes: [
+    { id: 'a', data: { value: 1, visited: false } },
+    { id: 'b', data: { value: 2, visited: false } }
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b', data: { weight: 5 } }
+  ]
+});
+
+// TypeScript knows the data types
+const nodeValue: number = graph.nodes[0].data.value;
+const edgeWeight: number = graph.edges[0].data.weight;
+```
+
+## Graph Wrapper Class
+
+For an object-oriented API, use `GraphInstance`:
+
+```typescript
+import { GraphInstance } from '@statelyai/graph';
+
+const instance = new GraphInstance({
+  nodes: [{ id: 'a' }, { id: 'b' }]
+});
+
+instance.addNode({ id: 'c' });
+instance.addEdge({ id: 'e1', sourceId: 'a', targetId: 'c' });
+
+console.log(instance.nodes.length); // 3
+console.log(instance.edges.length); // 1
+
+// Get the plain graph object
+const plainGraph = instance.toJSON();
+```
+
+<Info>
+`GraphInstance` is just a wrapper around a plain `Graph` object. All methods delegate to standalone functions. The underlying graph is accessible via `instance.graph`.
+</Info>
+
+## Directed vs. Undirected Graphs
+
+### Directed Graphs
+
+Edges have a clear direction from source to target:
+
+```typescript
+const directed = createGraph({
+  type: 'directed',
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }]
+});
+
+// a → b
+// hasPath(directed, 'a', 'b') === true
+// hasPath(directed, 'b', 'a') === false
+```
+
+### Undirected Graphs
+
+Edges can be traversed in both directions:
+
+```typescript
+const undirected = createGraph({
+  type: 'undirected',
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }]
+});
+
+// a — b
+// hasPath(undirected, 'a', 'b') === true
+// hasPath(undirected, 'b', 'a') === true
+```
+
+## Examples
+
+### Simple Graph
+
+```typescript
+const graph = createGraph({
+  nodes: [
+    { id: 'start', label: 'Start' },
+    { id: 'end', label: 'End' }
+  ],
+  edges: [
+    { id: 'transition', sourceId: 'start', targetId: 'end' }
+  ]
+});
+```
+
+### Weighted Graph
+
+```typescript
+interface WeightedEdge {
+  weight: number;
+}
+
+const graph = createGraph<any, WeightedEdge>({
+  nodes: [
+    { id: 'a' },
+    { id: 'b' },
+    { id: 'c' }
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b', data: { weight: 10 } },
+    { id: 'e2', sourceId: 'b', targetId: 'c', data: { weight: 20 } },
+    { id: 'e3', sourceId: 'a', targetId: 'c', data: { weight: 5 } }
+  ]
+});
+```
+
+### Graph with Metadata
+
+```typescript
+interface GraphMetadata {
+  name: string;
+  version: string;
+  createdAt: Date;
+}
+
+const graph = createGraph<any, any, GraphMetadata>({
+  id: 'workflow',
+  data: {
+    name: 'User Onboarding',
+    version: '1.0.0',
+    createdAt: new Date()
+  },
+  nodes: [{ id: 'welcome' }, { id: 'setup' }],
+  edges: [{ id: 'e1', sourceId: 'welcome', targetId: 'setup' }]
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Hierarchical Graphs" icon="sitemap" href="/concepts/hierarchical-graphs">
+    Learn about parent-child relationships and compound nodes
+  </Card>
+  <Card title="Visual Graphs" icon="eye" href="/concepts/visual-graphs">
+    Add position and size for rendering
+  </Card>
+  <Card title="Serialization" icon="file-code" href="/concepts/serialization">
+    Understand JSON serialization and plain objects
+  </Card>
+  <Card title="Operations" icon="wrench" href="/api/mutations">
+    Explore graph operations (add, update, delete)
+  </Card>
+</CardGroup>

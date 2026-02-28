@@ -1,0 +1,272 @@
+---
+title: Traversal
+description: Graph traversal algorithms for visiting nodes in different orders
+---
+
+Traversal algorithms visit nodes in a graph following specific patterns. Use these to explore graph structure, find reachable nodes, or implement custom search logic.
+
+## Basic Traversal
+
+### bfs
+
+```ts
+function bfs<N>(
+  graph: Graph<N>,
+  startId: string
+): Generator<GraphNode<N>>
+```
+
+Breadth-first traversal generator yielding nodes level by level.
+
+**Complexity:** O(V + E) where V is nodes and E is edges
+
+**When to use:**
+- Finding shortest unweighted paths
+- Level-order traversal
+- Finding all nodes within a certain distance
+
+#### Example
+
+```ts
+import { createGraph, bfs } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' }
+  ],
+});
+
+for (const node of bfs(graph, 'a')) {
+  console.log(node.id); // 'a', 'b', 'c'
+}
+```
+
+### dfs
+
+```ts
+function dfs<N>(
+  graph: Graph<N>,
+  startId: string
+): Generator<GraphNode<N>>
+```
+
+Depth-first traversal generator yielding nodes as visited.
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Cycle detection
+- Topological sorting
+- Path finding with backtracking
+- Exploring deeply nested structures
+
+#### Example
+
+```ts
+import { createGraph, dfs } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' }
+  ],
+});
+
+for (const node of dfs(graph, 'a')) {
+  console.log(node.id); // 'a', 'b', 'c'
+}
+```
+
+## DFS Orderings
+
+### getPreorder
+
+```ts
+function getPreorder<N>(
+  graph: Graph<N>,
+  opts?: TraversalOptions
+): GraphNode<N>[]
+```
+
+Returns a single canonical preorder (DFS visit-order) sequence. Nodes are added to the result when first visited.
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Serializing tree structures
+- Implementing prefix traversal
+- Building dependency chains
+
+#### Example
+
+```ts
+import { createGraph, getPreorder } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+const order = getPreorder(graph);
+// [nodeA, nodeB, nodeC]
+```
+
+### getPostorder
+
+```ts
+function getPostorder<N>(
+  graph: Graph<N>,
+  opts?: TraversalOptions
+): GraphNode<N>[]
+```
+
+Returns a single canonical postorder (DFS finish-order) sequence. Nodes are added to the result when all descendants have been visited.
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Processing dependencies bottom-up
+- Deleting tree nodes safely
+- Evaluating expression trees
+
+#### Example
+
+```ts
+import { createGraph, getPostorder } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+const order = getPostorder(graph);
+// [nodeC, nodeB, nodeA]
+```
+
+### genPreorders
+
+```ts
+function genPreorders<N>(
+  graph: Graph<N>,
+  opts?: TraversalOptions
+): Generator<GraphNode<N>[]>
+```
+
+Lazily yields all possible preorder sequences. Different neighbor exploration orders yield different sequences.
+
+**Complexity:** Exponential in the worst case (one sequence per valid ordering)
+
+**When to use:**
+- Enumerating all valid processing orders
+- Testing all possible traversal paths
+- Finding optimal ordering based on criteria
+
+**Note:** Can produce exponentially many results. Use `getPreorder()` for a single canonical ordering.
+
+#### Example
+
+```ts
+import { createGraph, genPreorders } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'ac', sourceId: 'a', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+for (const order of genPreorders(graph)) {
+  console.log(order.map(n => n.id));
+  // ['a', 'b', 'c'] or ['a', 'c', 'b']
+}
+```
+
+### getPreorders
+
+```ts
+function getPreorders<N>(
+  graph: Graph<N>,
+  opts?: TraversalOptions
+): GraphNode<N>[][]
+```
+
+Returns all possible preorder sequences as an array. Delegates to `genPreorders()` internally.
+
+**Note:** Can be exponential. Prefer `genPreorders()` for lazy evaluation.
+
+### genPostorders
+
+```ts
+function genPostorders<N>(
+  graph: Graph<N>,
+  opts?: TraversalOptions
+): Generator<GraphNode<N>[]>
+```
+
+Lazily yields all possible postorder sequences. Different neighbor exploration orders yield different sequences.
+
+**Complexity:** Exponential in the worst case
+
+**When to use:**
+- Enumerating all valid bottom-up processing orders
+- Testing different evaluation strategies
+
+#### Example
+
+```ts
+import { createGraph, genPostorders } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'ac', sourceId: 'a', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+for (const order of genPostorders(graph)) {
+  console.log(order.map(n => n.id));
+  // ['b', 'c', 'a'] or ['c', 'b', 'a']
+}
+```
+
+### getPostorders
+
+```ts
+function getPostorders<N>(
+  graph: Graph<N>,
+  opts?: TraversalOptions
+): GraphNode<N>[][]
+```
+
+Returns all possible postorder sequences as an array. Delegates to `genPostorders()` internally.
+
+**Note:** Can be exponential. Prefer `genPostorders()` for lazy evaluation.
+
+## Options
+
+### TraversalOptions
+
+```ts
+interface TraversalOptions {
+  from?: string;
+}
+```
+
+**Properties:**
+
+- `from` - Source node ID. Default: `graph.initialNodeId`, else the sole node with in-degree 0

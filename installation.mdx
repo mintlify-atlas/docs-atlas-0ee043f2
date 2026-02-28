@@ -1,0 +1,168 @@
+---
+title: Installation
+description: Install @statelyai/graph with npm, yarn, or pnpm
+---
+
+# Installation
+
+Install @statelyai/graph using your preferred package manager.
+
+## Package Managers
+
+<CodeGroup>
+
+```bash npm
+npm install @statelyai/graph
+```
+
+```bash yarn
+yarn add @statelyai/graph
+```
+
+```bash pnpm
+pnpm add @statelyai/graph
+```
+
+</CodeGroup>
+
+## Optional Peer Dependencies
+
+Some format converters require additional peer dependencies. Install them only if you need the corresponding format:
+
+### XML Formats (GEXF, GraphML)
+
+For GEXF and GraphML support:
+
+<CodeGroup>
+
+```bash npm
+npm install fast-xml-parser
+```
+
+```bash yarn
+yarn add fast-xml-parser
+```
+
+```bash pnpm
+pnpm add fast-xml-parser
+```
+
+</CodeGroup>
+
+### DOT Format (Graphviz)
+
+For DOT format support:
+
+<CodeGroup>
+
+```bash npm
+npm install dotparser
+```
+
+```bash yarn
+yarn add dotparser
+```
+
+```bash pnpm
+pnpm add dotparser
+```
+
+</CodeGroup>
+
+### Validation (Zod)
+
+For runtime schema validation:
+
+<CodeGroup>
+
+```bash npm
+npm install zod
+```
+
+```bash yarn
+yarn add zod
+```
+
+```bash pnpm
+pnpm add zod
+```
+
+</CodeGroup>
+
+<Note>
+All peer dependencies are **optional**. The core library works without any of them. Only install what you need for your specific use case.
+</Note>
+
+## Import Paths
+
+The library uses subpath exports for tree-shaking. Import only what you need:
+
+### Core Functions
+
+```typescript
+// Main graph operations
+import { createGraph, addNode, addEdge } from '@statelyai/graph';
+
+// Algorithms
+import { bfs, dfs, getShortestPath } from '@statelyai/graph/algorithms';
+
+// Queries
+import { getNeighbors, getDegree } from '@statelyai/graph/queries';
+```
+
+### Format Converters
+
+Each format has its own import path:
+
+```typescript
+// Cytoscape.js
+import { toCytoscapeJSON, fromCytoscapeJSON } from '@statelyai/graph/cytoscape';
+
+// D3.js
+import { toD3Graph, fromD3Graph } from '@statelyai/graph/d3';
+
+// DOT (Graphviz)
+import { toDOT, fromDOT } from '@statelyai/graph/dot';
+
+// GraphML
+import { toGraphML, fromGraphML } from '@statelyai/graph/graphml';
+
+// GEXF (Gephi)
+import { toGEXF, fromGEXF } from '@statelyai/graph/gexf';
+
+// JSON Graph Format
+import { toJGF, fromJGF } from '@statelyai/graph/jgf';
+
+// Mermaid diagrams
+import { toMermaidFlowchart, fromMermaidFlowchart } from '@statelyai/graph/mermaid';
+
+// Edge list / Adjacency list
+import { toEdgeList, fromEdgeList } from '@statelyai/graph/edge-list';
+import { toAdjacencyList, fromAdjacencyList } from '@statelyai/graph/adjacency-list';
+```
+
+## TypeScript Configuration
+
+The library is written in TypeScript and includes type definitions. No additional setup is required for TypeScript projects.
+
+<Note>
+The library requires ES modules. If you're using CommonJS, you may need to configure your build tool to handle ES module imports.
+</Note>
+
+## Version Support
+
+- **Node.js**: 18.x or higher recommended
+- **TypeScript**: 5.0 or higher
+- **Package Manager**: npm 7+, yarn 1.22+, or pnpm 8+
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first graph
+  </Card>
+  
+  <Card title="Core Concepts" icon="lightbulb" href="/concepts/graphs">
+    Learn about graph structure and types
+  </Card>
+</CardGroup>

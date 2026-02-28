@@ -1,0 +1,567 @@
+---
+title: Mutations
+description: Functions that modify graphs in place
+---
+
+<Note>
+All mutation functions modify the graph in place and are marked with **Mutable** in their documentation.
+</Note>
+
+## addNode
+
+**Mutable.** Add a node to the graph. Mutates `graph.nodes` in place.
+
+```typescript
+export function addNode<N>(
+  graph: Graph<N>,
+  config: NodeConfig<N>
+): GraphNode<N>
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph to add the node to.
+</ParamField>
+
+<ParamField path="config" type="NodeConfig<N>" required>
+  Node configuration. See [NodeConfig](/api/graph-creation#nodeconfig) for details.
+</ParamField>
+
+<ResponseField name="node" type="GraphNode<N>">
+  The resolved node that was added to the graph.
+</ResponseField>
+
+### Behavior
+
+- Throws if `config.id` is empty or already exists in the graph
+- Throws if `config.parentId` is specified but the parent node doesn't exist
+- Resolves defaults: `label` → `''`, `data` → `undefined`
+- Updates internal indexes automatically
+
+### Examples
+
+<CodeGroup>
+```typescript Basic
+const graph = createGraph();
+const node = addNode(graph, { id: 'a', label: 'Node A' });
+// graph.nodes.length === 1
+// node.type === 'node'
+// node.label === 'Node A'
+```
+
+```typescript With parent
+const graph = createGraph({ nodes: [{ id: 'root' }] });
+addNode(graph, { id: 'child', parentId: 'root' });
+// Child node added under 'root'
+```
+
+```typescript Error: duplicate
+const graph = createGraph({ nodes: [{ id: 'a' }] });
+addNode(graph, { id: 'a' }); // throws: Node "a" already exists
+```
+</CodeGroup>
+
+---
+
+## addEdge
+
+**Mutable.** Add an edge to the graph. Mutates `graph.edges` in place.
+
+```typescript
+export function addEdge<E>(
+  graph: Graph<any, E>,
+  config: EdgeConfig<E>
+): GraphEdge<E>
+```
+
+<ParamField path="graph" type="Graph<any, E>" required>
+  The graph to add the edge to.
+</ParamField>
+
+<ParamField path="config" type="EdgeConfig<E>" required>
+  Edge configuration. See [EdgeConfig](/api/graph-creation#edgeconfig) for details.
+</ParamField>
+
+<ResponseField name="edge" type="GraphEdge<E>">
+  The resolved edge that was added to the graph.
+</ResponseField>
+
+### Behavior
+
+- Throws if `config.id` is empty or already exists
+- Throws if `config.sourceId` or `config.targetId` is empty or references a non-existent node
+- Resolves defaults: `label` → `''`, `data` → `undefined`
+- Updates internal indexes automatically
+
+### Examples
+
+<CodeGroup>
+```typescript Basic
+const graph = createGraph({ nodes: [{ id: 'a' }, { id: 'b' }] });
+const edge = addEdge(graph, { id: 'e1', sourceId: 'a', targetId: 'b' });
+// graph.edges.length === 1
+// edge.type === 'edge'
+```
+
+```typescript With label and data
+const graph = createGraph({ nodes: [{ id: 'a' }, { id: 'b' }] });
+addEdge(graph, {
+  id: 'e1',
+  sourceId: 'a',
+  targetId: 'b',
+  label: 'connects',
+  data: { weight: 5 },
+});
+```
+
+```typescript Error: missing node
+const graph = createGraph({ nodes: [{ id: 'a' }] });
+addEdge(graph, { id: 'e1', sourceId: 'a', targetId: 'missing' });
+// throws: Target node "missing" does not exist
+```
+</CodeGroup>
+
+---
+
+## deleteNode
+
+**Mutable.** Delete a node and its connected edges. Mutates `graph.nodes` and `graph.edges` in place.
+
+```typescript
+export function deleteNode(
+  graph: Graph,
+  id: string,
+  opts?: DeleteNodeOptions
+): void
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to delete the node from.
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  ID of the node to delete.
+</ParamField>
+
+<ParamField path="opts" type="DeleteNodeOptions" optional>
+  Options for handling child nodes.
+  
+  <Expandable title="DeleteNodeOptions properties">
+    <ParamField path="reparent" type="boolean" optional>
+      If `true`, children are re-parented to the deleted node's parent. If `false` (default), children are deleted recursively.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Behavior
+
+- Throws if the node doesn't exist
+- By default, deletes all descendant nodes recursively
+- Deletes all edges connected to the deleted node(s)
+- With `{ reparent: true }`, children are moved to the deleted node's parent
+- Invalidates internal indexes (rebuilds on next access)
+
+### Examples
+
+<CodeGroup>
+```typescript Basic deletion
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+deleteNode(graph, 'a');
+// graph.nodes.length === 1
+// graph.edges.length === 0 (e1 removed with node a)
+```
+
+```typescript Cascade delete children
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'child', parentId: 'root' },
+    { id: 'grandchild', parentId: 'child' },
+    { id: 'other' },
+  ],
+  edges: [{ id: 'e1', sourceId: 'grandchild', targetId: 'other' }],
+});
+deleteNode(graph, 'root');
+// graph.nodes.length === 1 (only 'other' remains)
+// graph.edges.length === 0 (e1 removed)
+```
+
+```typescript Reparent children
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'mid', parentId: 'root' },
+    { id: 'leaf', parentId: 'mid' },
+  ],
+  edges: [],
+});
+deleteNode(graph, 'mid', { reparent: true });
+// graph.nodes.length === 2
+// getNode(graph, 'leaf').parentId === 'root'
+```
+</CodeGroup>
+
+---
+
+## deleteEdge
+
+**Mutable.** Delete an edge. Mutates `graph.edges` in place.
+
+```typescript
+export function deleteEdge(graph: Graph, id: string): void
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to delete the edge from.
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  ID of the edge to delete.
+</ParamField>
+
+### Behavior
+
+- Throws if the edge doesn't exist
+- Invalidates internal indexes (rebuilds on next access)
+
+### Examples
+
+<CodeGroup>
+```typescript Basic
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+deleteEdge(graph, 'e1');
+// graph.edges.length === 0
+```
+
+```typescript Error: missing edge
+const graph = createGraph();
+deleteEdge(graph, 'missing'); // throws: Edge "missing" does not exist
+```
+</CodeGroup>
+
+---
+
+## updateNode
+
+**Mutable.** Update a node in place.
+
+```typescript
+export function updateNode<N>(
+  graph: Graph<N>,
+  id: string,
+  update: Partial<Omit<NodeConfig<N>, 'id'>>
+): GraphNode<N>
+```
+
+<ParamField path="graph" type="Graph<N>" required>
+  The graph containing the node.
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  ID of the node to update.
+</ParamField>
+
+<ParamField path="update" type="Partial<Omit<NodeConfig<N>, 'id'>>" required>
+  Partial update object. Can include any `NodeConfig` property except `id`.
+</ParamField>
+
+<ResponseField name="node" type="GraphNode<N>">
+  The updated node.
+</ResponseField>
+
+### Behavior
+
+- Throws if the node doesn't exist
+- Throws if `update.parentId` is specified but the parent node doesn't exist
+- Updates only the specified properties (shallow merge)
+- Updates hierarchy indexes if `parentId` changes
+
+### Examples
+
+<CodeGroup>
+```typescript Update label
+const graph = createGraph({ nodes: [{ id: 'a', label: 'old' }] });
+const updated = updateNode(graph, 'a', { label: 'new' });
+// updated.label === 'new'
+// getNode(graph, 'a').label === 'new'
+```
+
+```typescript Update data
+const graph = createGraph({ nodes: [{ id: 'a', data: { x: 1 } }] });
+updateNode(graph, 'a', { data: { x: 2 } });
+// getNode(graph, 'a').data === { x: 2 }
+```
+
+```typescript Change parent
+const graph = createGraph({
+  nodes: [
+    { id: 'root1' },
+    { id: 'root2' },
+    { id: 'child', parentId: 'root1' },
+  ],
+});
+updateNode(graph, 'child', { parentId: 'root2' });
+// getNode(graph, 'child').parentId === 'root2'
+```
+</CodeGroup>
+
+---
+
+## updateEdge
+
+**Mutable.** Update an edge in place.
+
+```typescript
+export function updateEdge<E>(
+  graph: Graph<any, E>,
+  id: string,
+  update: Partial<Omit<EdgeConfig<E>, 'id'>>
+): GraphEdge<E>
+```
+
+<ParamField path="graph" type="Graph<any, E>" required>
+  The graph containing the edge.
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  ID of the edge to update.
+</ParamField>
+
+<ParamField path="update" type="Partial<Omit<EdgeConfig<E>, 'id'>>" required>
+  Partial update object. Can include any `EdgeConfig` property except `id`.
+</ParamField>
+
+<ResponseField name="edge" type="GraphEdge<E>">
+  The updated edge.
+</ResponseField>
+
+### Behavior
+
+- Throws if the edge doesn't exist
+- Throws if `update.sourceId` or `update.targetId` is specified but references a non-existent node
+- Updates only the specified properties (shallow merge)
+- Updates adjacency indexes if `sourceId` or `targetId` changes
+
+### Examples
+
+<CodeGroup>
+```typescript Update label
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b', label: 'old' }],
+});
+const updated = updateEdge(graph, 'e1', { label: 'new' });
+// updated.label === 'new'
+```
+
+```typescript Change target
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+const updated = updateEdge(graph, 'e1', { targetId: 'c', label: 'updated' });
+// updated.targetId === 'c'
+// updated.label === 'updated'
+```
+
+```typescript Update data
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b', data: { w: 1 } }],
+});
+updateEdge(graph, 'e1', { data: { w: 5 } });
+// getEdge(graph, 'e1').data === { w: 5 }
+```
+</CodeGroup>
+
+---
+
+## addEntities
+
+**Mutable.** Add multiple nodes and edges to the graph. Nodes are added first, then edges (so edges can reference new nodes).
+
+```typescript
+export function addEntities<N, E>(
+  graph: Graph<N, E>,
+  entities: EntitiesConfig<N, E>
+): void
+```
+
+<ParamField path="graph" type="Graph<N, E>" required>
+  The graph to add entities to.
+</ParamField>
+
+<ParamField path="entities" type="EntitiesConfig<N, E>" required>
+  Configuration with arrays of nodes and/or edges.
+  
+  <Expandable title="EntitiesConfig properties">
+    <ParamField path="nodes" type="NodeConfig<N>[]" optional>
+      Array of node configurations to add.
+    </ParamField>
+    
+    <ParamField path="edges" type="EdgeConfig<E>[]" optional>
+      Array of edge configurations to add.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```typescript Add multiple entities
+const graph = createGraph();
+addEntities(graph, {
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'b', targetId: 'c' },
+  ],
+});
+// graph.nodes.length === 3
+// graph.edges.length === 2
+```
+
+```typescript Edges reference new nodes
+const graph = createGraph();
+addEntities(graph, {
+  nodes: [{ id: 'x' }, { id: 'y' }],
+  edges: [{ id: 'e1', sourceId: 'x', targetId: 'y' }],
+});
+// Works because nodes are added before edges
+```
+
+```typescript Nodes only
+const graph = createGraph();
+addEntities(graph, { nodes: [{ id: 'a' }] });
+// graph.nodes.length === 1
+```
+</CodeGroup>
+
+---
+
+## deleteEntities
+
+**Mutable.** Delete entities by id(s). Automatically detects whether each id is a node or edge. Node deletions cascade to children and connected edges.
+
+```typescript
+export function deleteEntities(
+  graph: Graph,
+  ids: string | string[],
+  opts?: DeleteNodeOptions
+): void
+```
+
+<ParamField path="graph" type="Graph" required>
+  The graph to delete entities from.
+</ParamField>
+
+<ParamField path="ids" type="string | string[]" required>
+  Single ID or array of IDs to delete. Can be mixed node and edge IDs.
+</ParamField>
+
+<ParamField path="opts" type="DeleteNodeOptions" optional>
+  Options passed to `deleteNode` for node deletions. See [deleteNode](#deletenode) for details.
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```typescript Delete single node
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+deleteEntities(graph, 'a');
+// graph.nodes.length === 1
+// graph.edges.length === 0 (e1 removed with node a)
+```
+
+```typescript Delete multiple mixed
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b' },
+    { id: 'e2', sourceId: 'b', targetId: 'c' },
+  ],
+});
+deleteEntities(graph, ['a', 'e2']);
+// graph.nodes.length === 2 (b, c remain)
+// graph.edges.length === 0 (e1 removed with a, e2 explicitly deleted)
+```
+
+```typescript Auto-detect nodes vs edges
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+deleteEntities(graph, 'e1'); // Detected as edge
+// graph.nodes.length === 2
+// graph.edges.length === 0
+```
+</CodeGroup>
+
+---
+
+## updateEntities
+
+**Mutable.** Update multiple nodes and edges in place. Each entry must include an `id` to identify which entity to update.
+
+```typescript
+export function updateEntities<N, E>(
+  graph: Graph<N, E>,
+  updates: EntitiesUpdate<N, E>
+): void
+```
+
+<ParamField path="graph" type="Graph<N, E>" required>
+  The graph to update entities in.
+</ParamField>
+
+<ParamField path="updates" type="EntitiesUpdate<N, E>" required>
+  Update configuration with arrays of node and/or edge updates.
+  
+  <Expandable title="EntitiesUpdate properties">
+    <ParamField path="nodes" type="(Partial<Omit<NodeConfig<N>, 'id'>> & { id: string })[]" optional>
+      Array of node updates. Each must include `id` plus properties to update.
+    </ParamField>
+    
+    <ParamField path="edges" type="(Partial<Omit<EdgeConfig<E>, 'id'>> & { id: string })[]" optional>
+      Array of edge updates. Each must include `id` plus properties to update.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```typescript Update multiple entities
+const graph = createGraph({
+  nodes: [
+    { id: 'a', label: 'A' },
+    { id: 'b', label: 'B' },
+  ],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b', label: 'old' }],
+});
+updateEntities(graph, {
+  nodes: [
+    { id: 'a', label: 'A-updated' },
+    { id: 'b', label: 'B-updated' },
+  ],
+  edges: [{ id: 'e1', label: 'new' }],
+});
+// getNode(graph, 'a').label === 'A-updated'
+// getNode(graph, 'b').label === 'B-updated'
+// getEdge(graph, 'e1').label === 'new'
+```
+
+```typescript Nodes only
+const graph = createGraph({ nodes: [{ id: 'a', data: 1 }] });
+updateEntities(graph, { nodes: [{ id: 'a', data: 99 }] });
+// getNode(graph, 'a').data === 99
+```
+</CodeGroup>

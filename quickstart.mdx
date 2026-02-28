@@ -1,80 +1,381 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Create your first graph and run algorithms in minutes
 ---
 
-## Get started in three steps
+# Quick Start
 
-Get your documentation site running locally and make your first customization.
+Get started with @statelyai/graph in under 5 minutes.
 
-### Step 1: Set up your local environment
+## Create Your First Graph
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Import the library">
+    ```typescript
+    import { createGraph, addNode, addEdge } from '@statelyai/graph';
+    ```
+  </Step>
 
-### Step 2: Deploy your changes
+  <Step title="Create a graph">
+    ```typescript
+    const graph = createGraph({
+      nodes: [
+        { id: 'a', label: 'Start' },
+        { id: 'b', label: 'Middle' },
+        { id: 'c', label: 'End' },
+      ],
+      edges: [
+        { id: 'e1', sourceId: 'a', targetId: 'b' },
+        { id: 'e2', sourceId: 'b', targetId: 'c' },
+      ],
+    });
+    ```
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+  <Step title="Mutate the graph">
+    ```typescript
+    // Add a new node
+    addNode(graph, { id: 'd', label: 'Shortcut' });
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    // Add an edge
+    addEdge(graph, { id: 'e3', sourceId: 'a', targetId: 'd' });
+    addEdge(graph, { id: 'e4', sourceId: 'd', targetId: 'c' });
+    ```
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Run algorithms">
+    ```typescript
+    import { getShortestPath } from '@statelyai/graph/algorithms';
 
-### Step 3: Go live
+    const path = getShortestPath(graph, { from: 'a', to: 'c' });
+    console.log(path.steps.map(s => s.node.id)); // ['d', 'c'] - takes the shortcut!
+    ```
+  </Step>
+</Steps>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Working Example
 
-## Next steps
+Here's a complete example you can run:
 
-Now that you have your docs running, explore these key features:
+```typescript
+import { 
+  createGraph, 
+  addNode, 
+  addEdge, 
+  getNode 
+} from '@statelyai/graph';
+import { 
+  getShortestPath, 
+  bfs, 
+  isAcyclic 
+} from '@statelyai/graph/algorithms';
+import { getNeighbors } from '@statelyai/graph/queries';
 
-<CardGroup cols={2}>
+// Create a simple task dependency graph
+const graph = createGraph({
+  nodes: [
+    { id: 'design', label: 'Design UI' },
+    { id: 'implement', label: 'Implement' },
+    { id: 'test', label: 'Test' },
+    { id: 'deploy', label: 'Deploy' },
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'design', targetId: 'implement' },
+    { id: 'e2', sourceId: 'implement', targetId: 'test' },
+    { id: 'e3', sourceId: 'test', targetId: 'deploy' },
+  ],
+});
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+// Check if the graph is a valid DAG (no cycles)
+console.log(isAcyclic(graph)); // true
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+// Get all tasks that depend on 'design'
+const dependents = getNeighbors(graph, 'design');
+console.log(dependents.map(n => n.label)); // ['Implement']
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+// Find the path from start to finish
+const path = getShortestPath(graph, { 
+  from: 'design', 
+  to: 'deploy' 
+});
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+console.log('Task order:');
+console.log(path.source.label); // 'Design UI'
+path.steps.forEach(step => {
+  console.log('→', step.node.label);
+});
+// Output:
+// Task order:
+// Design UI
+// → Implement
+// → Test
+// → Deploy
 
-</CardGroup>
+// Traverse all tasks in order
+for (const node of bfs(graph, 'design')) {
+  console.log('Process:', node.label);
+}
+```
+
+## Hierarchical Graphs
+
+Nodes can have parent-child relationships for compound graphs:
+
+```typescript
+import { createGraph, flatten } from '@statelyai/graph';
+import { getChildren, getParent } from '@statelyai/graph/queries';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'app' },
+    { id: 'auth', parentId: 'app', initialNodeId: 'login' },
+    { id: 'login', parentId: 'auth' },
+    { id: 'signup', parentId: 'auth' },
+    { id: 'dashboard', parentId: 'app' },
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'login', targetId: 'dashboard' },
+    { id: 'e2', sourceId: 'signup', targetId: 'dashboard' },
+  ],
+});
+
+// Query the hierarchy
+const authChildren = getChildren(graph, 'auth');
+console.log(authChildren.map(n => n.id)); // ['login', 'signup']
+
+const parent = getParent(graph, 'login');
+console.log(parent?.id); // 'auth'
+
+// Flatten compound nodes into a flat graph
+const flat = flatten(graph);
+console.log(flat.nodes.map(n => n.id)); // ['login', 'signup', 'dashboard']
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+`flatten()` resolves hierarchical edges: edges targeting a compound node resolve to its `initialNodeId`, and edges from a compound node expand from all leaf descendants.
 </Note>
+
+## Visual Graphs
+
+Create graphs with guaranteed position and size properties for rendering:
+
+```typescript
+import { createVisualGraph } from '@statelyai/graph';
+
+const diagram = createVisualGraph({
+  direction: 'right',
+  nodes: [
+    { 
+      id: 'start', 
+      x: 0, 
+      y: 0, 
+      width: 120, 
+      height: 60, 
+      shape: 'ellipse',
+      label: 'Start'
+    },
+    { 
+      id: 'end', 
+      x: 200, 
+      y: 0, 
+      width: 120, 
+      height: 60, 
+      shape: 'ellipse',
+      color: '#3b82f6',
+      label: 'End'
+    },
+  ],
+  edges: [
+    { 
+      id: 'e1', 
+      sourceId: 'start', 
+      targetId: 'end',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100
+    }
+  ],
+});
+
+// All nodes and edges have x, y, width, height
+console.log(diagram.nodes[0].x); // 0 (guaranteed to exist)
+console.log(diagram.direction); // 'right'
+```
+
+## Format Conversion
+
+Convert between different graph formats:
+
+```typescript
+import { createGraph } from '@statelyai/graph';
+import { toCytoscapeJSON } from '@statelyai/graph/cytoscape';
+import { toD3Graph } from '@statelyai/graph/d3';
+import { toDOT } from '@statelyai/graph/dot';
+import { toGraphML } from '@statelyai/graph/graphml';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+
+// Export to visualization libraries
+const cytoData = toCytoscapeJSON(graph);
+const d3Data = toD3Graph(graph);
+
+// Export to text formats
+const dot = toDOT(graph);
+console.log(dot);
+// digraph {
+//   "a"
+//   "b"
+//   "a" -> "b"
+// }
+
+const graphml = toGraphML(graph);
+// Returns GraphML XML string
+```
+
+<CodeGroup>
+
+```typescript Cytoscape.js
+import { toCytoscapeJSON, fromCytoscapeJSON } from '@statelyai/graph/cytoscape';
+
+// Export to Cytoscape.js
+const cytoData = toCytoscapeJSON(graph);
+
+// Import from Cytoscape.js
+const graph = fromCytoscapeJSON(cytoData);
+```
+
+```typescript D3.js
+import { toD3Graph, fromD3Graph } from '@statelyai/graph/d3';
+
+// Export to D3.js force layout format
+const d3Data = toD3Graph(graph);
+console.log(d3Data); // { nodes: [...], links: [...] }
+
+// Import from D3.js
+const graph = fromD3Graph(d3Data);
+```
+
+```typescript DOT (Graphviz)
+import { toDOT, fromDOT } from '@statelyai/graph/dot';
+
+// Export to DOT
+const dot = toDOT(graph);
+
+// Import from DOT (requires 'dotparser' peer dependency)
+const graph = fromDOT(dot);
+```
+
+```typescript GraphML
+import { toGraphML, fromGraphML } from '@statelyai/graph/graphml';
+
+// Export to GraphML XML (requires 'fast-xml-parser')
+const xml = toGraphML(graph);
+
+// Import from GraphML
+const graph = fromGraphML(xml);
+```
+
+</CodeGroup>
+
+## Type Safety with Custom Data
+
+Attach strongly-typed data to nodes and edges:
+
+```typescript
+interface TaskData {
+  assignee: string;
+  estimatedHours: number;
+  status: 'todo' | 'in-progress' | 'done';
+}
+
+interface DependencyData {
+  type: 'blocks' | 'relates-to';
+}
+
+const graph = createGraph<TaskData, DependencyData>({
+  nodes: [
+    { 
+      id: 'task-1', 
+      label: 'Design',
+      data: { 
+        assignee: 'Alice', 
+        estimatedHours: 8,
+        status: 'done'
+      }
+    },
+    { 
+      id: 'task-2', 
+      label: 'Implement',
+      data: { 
+        assignee: 'Bob', 
+        estimatedHours: 16,
+        status: 'in-progress'
+      }
+    },
+  ],
+  edges: [
+    { 
+      id: 'e1', 
+      sourceId: 'task-1', 
+      targetId: 'task-2',
+      data: { type: 'blocks' }
+    },
+  ],
+});
+
+// Full type inference
+const task = getNode(graph, 'task-1');
+if (task) {
+  console.log(task.data.assignee); // string
+  console.log(task.data.status); // 'todo' | 'in-progress' | 'done'
+}
+```
+
+## Common Queries
+
+Explore graph structure with query functions:
+
+```typescript
+import { 
+  getNeighbors, 
+  getDegree, 
+  getSources, 
+  getSinks 
+} from '@statelyai/graph/queries';
+
+// Get all connected nodes
+const neighbors = getNeighbors(graph, 'a');
+
+// Get number of connected edges
+const degree = getDegree(graph, 'a');
+
+// Get nodes with no incoming edges
+const sources = getSources(graph);
+
+// Get nodes with no outgoing edges  
+const sinks = getSinks(graph);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Hierarchical Graphs" icon="sitemap" href="/concepts/hierarchical-graphs">
+    Learn about parent-child relationships
+  </Card>
+  
+  <Card title="Graph Algorithms" icon="project-diagram" href="/api/algorithms/traversal">
+    Explore pathfinding, traversal, and analysis
+  </Card>
+  
+  <Card title="Format Converters" icon="arrows-rotate" href="/api/formats/overview">
+    Convert between different graph formats
+  </Card>
+  
+  <Card title="Queries" icon="search" href="/api/queries/neighbors">
+    Discover graph query functions
+  </Card>
+</CardGroup>

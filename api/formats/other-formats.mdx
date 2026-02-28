@@ -1,0 +1,559 @@
+---
+title: Other Formats
+description: JGF, GML, TGF, edge lists, adjacency lists, and XYFlow
+---
+
+# Other Formats
+
+Additional graph format converters for specialized use cases.
+
+## JSON Graph Format (JGF)
+
+[JGF](https://jsongraphformat.info/) is a standardized JSON format for representing graphs.
+
+### Import
+
+```ts
+import { toJGF, fromJGF, jgfConverter } from '@statelyai/graph';
+// Or:
+import { toJGF } from '@statelyai/graph/jgf';
+```
+
+### Example
+
+```ts
+import { createGraph, toJGF } from '@statelyai/graph';
+
+const graph = createGraph({
+  id: 'MyGraph',
+  nodes: [
+    { id: 'a', label: 'Node A', data: { priority: 1 } },
+    { id: 'b', label: 'Node B', parentId: 'container' }
+  ],
+  edges: [
+    { id: 'e0', sourceId: 'a', targetId: 'b', data: { weight: 5 } }
+  ],
+  data: { version: '1.0' }
+});
+
+const jgf = toJGF(graph);
+```
+
+**Result:**
+
+```json
+{
+  "graph": {
+    "id": "MyGraph",
+    "directed": true,
+    "metadata": {
+      "data": { "version": "1.0" }
+    },
+    "nodes": [
+      {
+        "id": "a",
+        "label": "Node A",
+        "metadata": {
+          "data": { "priority": 1 }
+        }
+      },
+      {
+        "id": "b",
+        "label": "Node B",
+        "metadata": {
+          "parentId": "container"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e0",
+        "source": "a",
+        "target": "b",
+        "metadata": {
+          "data": { "weight": 5 }
+        }
+      }
+    ]
+  }
+}
+```
+
+### Features
+
+- ✅ Compound graphs (via `parentId` in metadata)
+- ✅ Visual properties (position, size, color in metadata)
+- ✅ Custom data preservation
+- ✅ No dependencies
+
+### Type Definitions
+
+```ts
+interface JGFNode {
+  id: string;
+  label?: string;
+  metadata?: Record<string, any>;
+}
+
+interface JGFEdge {
+  id?: string;
+  source: string;
+  target: string;
+  label?: string;
+  metadata?: Record<string, any>;
+}
+
+interface JGFGraph {
+  graph: {
+    id?: string;
+    directed?: boolean;
+    metadata?: Record<string, any>;
+    nodes: JGFNode[];
+    edges: JGFEdge[];
+  };
+}
+```
+
+## GML (Graph Modelling Language)
+
+Text-based format with simple key-value syntax.
+
+### Import
+
+```ts
+import { toGML, fromGML, gmlConverter } from '@statelyai/graph';
+// Or:
+import { toGML } from '@statelyai/graph/gml';
+```
+
+### Example
+
+```ts
+import { createGraph, toGML } from '@statelyai/graph';
+
+const graph = createGraph({
+  id: 'MyGraph',
+  nodes: [
+    { id: 'a', label: 'Node A', x: 0, y: 0 },
+    { id: 'b', label: 'Node B', x: 100, y: 100, parentId: 'container' },
+    { id: 'container', label: 'Container' }
+  ],
+  edges: [
+    { id: 'e0', sourceId: 'a', targetId: 'b' }
+  ]
+});
+
+const gml = toGML(graph);
+```
+
+**Result:**
+
+```gml
+graph [
+  directed 1
+  id "MyGraph"
+  node [
+    id "a"
+    label "Node A"
+    graphics [
+      x 0
+      y 0
+    ]
+  ]
+  node [
+    id "container"
+    label "Container"
+    node [
+      id "b"
+      label "Node B"
+      graphics [
+        x 100
+        y 100
+      ]
+    ]
+  ]
+  edge [
+    id "e0"
+    source "a"
+    target "b"
+  ]
+]
+```
+
+### Features
+
+- ✅ Compound graphs (nested node syntax)
+- ✅ Graphics properties (x, y, width, height)
+- ✅ Custom data (JSON-serialized)
+- ✅ No dependencies
+- ✅ Human-readable format
+
+### Graphics Block
+
+Visual properties are stored in a `graphics` block:
+
+| Property | GML Key |
+|----------|--------|
+| `node.x` | `graphics { x ... }` |
+| `node.y` | `graphics { y ... }` |
+| `node.width` | `graphics { w ... }` |
+| `node.height` | `graphics { h ... }` |
+
+## TGF (Trivial Graph Format)
+
+Minimalist format: nodes, separator, edges.
+
+### Import
+
+```ts
+import { toTGF, fromTGF, tgfConverter } from '@statelyai/graph';
+// Or:
+import { toTGF } from '@statelyai/graph/tgf';
+```
+
+### Example
+
+```ts
+import { createGraph, toTGF } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'a', label: 'Alice' },
+    { id: 'b', label: 'Bob' },
+    { id: 'c', label: 'Charlie' }
+  ],
+  edges: [
+    { id: 'e0', sourceId: 'a', targetId: 'b', label: 'knows' },
+    { id: 'e1', sourceId: 'b', targetId: 'c', label: 'works with' }
+  ]
+});
+
+const tgf = toTGF(graph);
+```
+
+**Result:**
+
+```
+a Alice
+b Bob
+c Charlie
+#
+a b knows
+b c works with
+```
+
+### Format Specification
+
+1. **Node section**: `id [label]` (one per line)
+2. **Separator**: `#` on its own line
+3. **Edge section**: `source target [label]` (one per line)
+
+### Features
+
+- ❌ No compound graphs
+- ❌ No visual properties
+- ✅ Extremely simple format
+- ✅ No dependencies
+- ✅ Easy to hand-write
+
+## Edge List
+
+Simplest format: array of `[source, target]` tuples.
+
+### Import
+
+```ts
+import { toEdgeList, fromEdgeList, edgeListConverter } from '@statelyai/graph';
+```
+
+### Example
+
+```ts
+import { createGraph, toEdgeList } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { sourceId: 'a', targetId: 'b' },
+    { sourceId: 'b', targetId: 'c' }
+  ]
+});
+
+const edges = toEdgeList(graph);
+// [['a', 'b'], ['b', 'c']]
+```
+
+### Parsing
+
+```ts
+import { fromEdgeList } from '@statelyai/graph';
+
+const graph = fromEdgeList(
+  [['a', 'b'], ['b', 'c']],
+  { directed: true, id: 'MyGraph' }
+);
+```
+
+### Type Signature
+
+```ts
+function toEdgeList(graph: Graph): [string, string][]
+
+function fromEdgeList(
+  edges: [string, string][],
+  options?: { directed?: boolean; id?: string }
+): Graph
+```
+
+### Features
+
+- ❌ No node metadata
+- ❌ No edge metadata
+- ❌ No compound graphs
+- ✅ Minimal format
+- ✅ No dependencies
+
+## Adjacency List
+
+Object mapping node IDs to arrays of neighbor IDs.
+
+### Import
+
+```ts
+import { toAdjacencyList, fromAdjacencyList, adjacencyListConverter } from '@statelyai/graph';
+```
+
+### Example
+
+```ts
+import { createGraph, toAdjacencyList } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { sourceId: 'a', targetId: 'b' },
+    { sourceId: 'a', targetId: 'c' }
+  ]
+});
+
+const adj = toAdjacencyList(graph);
+// { a: ['b', 'c'], b: [], c: [] }
+```
+
+### Undirected Graphs
+
+```ts
+import { createGraph, toAdjacencyList } from '@statelyai/graph';
+
+const graph = createGraph({
+  type: 'undirected',
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ sourceId: 'a', targetId: 'b' }]
+});
+
+const adj = toAdjacencyList(graph);
+// { a: ['b'], b: ['a'] }  // Symmetric!
+```
+
+### Parsing
+
+```ts
+import { fromAdjacencyList } from '@statelyai/graph';
+
+const graph = fromAdjacencyList(
+  {
+    a: ['b', 'c'],
+    b: ['c'],
+    c: []
+  },
+  { directed: true, id: 'MyGraph' }
+);
+```
+
+### Type Signature
+
+```ts
+function toAdjacencyList(graph: Graph): Record<string, string[]>
+
+function fromAdjacencyList(
+  adj: Record<string, string[]>,
+  options?: { directed?: boolean; id?: string }
+): Graph
+```
+
+### Features
+
+- ❌ No node metadata
+- ❌ No edge metadata
+- ❌ No compound graphs
+- ✅ Compact representation
+- ✅ No dependencies
+- ✅ Natural for algorithms
+
+## XYFlow (React Flow / Svelte Flow)
+
+Format for [React Flow](https://reactflow.dev/) and [Svelte Flow](https://svelteflow.dev/).
+
+### Installation
+
+Requires the `@xyflow/system` peer dependency:
+
+```bash
+pnpm add @xyflow/system
+```
+
+### Import
+
+```ts
+import { toXYFlow, fromXYFlow, xyflowConverter } from '@statelyai/graph';
+// Or:
+import { toXYFlow } from '@statelyai/graph/xyflow';
+```
+
+### Example
+
+```ts
+import { createVisualGraph, toXYFlow } from '@statelyai/graph';
+
+const graph = createVisualGraph({
+  nodes: [
+    { id: 'a', x: 0, y: 0, width: 100, height: 50, label: 'Node A' },
+    { id: 'b', x: 200, y: 100, width: 100, height: 50, label: 'Node B' }
+  ],
+  edges: [
+    { id: 'e0', sourceId: 'a', targetId: 'b' }
+  ]
+});
+
+const flow = toXYFlow(graph);
+```
+
+**Result:**
+
+```json
+{
+  "nodes": [
+    {
+      "id": "a",
+      "position": { "x": 0, "y": 0 },
+      "data": {},
+      "width": 100,
+      "height": 50
+    },
+    {
+      "id": "b",
+      "position": { "x": 200, "y": 100 },
+      "data": {},
+      "width": 100,
+      "height": 50
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0",
+      "source": "a",
+      "target": "b"
+    }
+  ]
+}
+```
+
+### Features
+
+- ✅ Compound graphs (via `parentId`)
+- ✅ Required position and size
+- ✅ Custom data
+- ✅ Node types (mapped to `shape`)
+
+### Mapping
+
+| Graph Property | XYFlow Property | Notes |
+|----------------|----------------|-------|
+| `node.id` | `id` | Required |
+| `node.x, node.y` | `position: { x, y }` | Required |
+| `node.width, node.height` | `width`, `height` | Dimensions |
+| `node.shape` | `type` | Node type |
+| `node.parentId` | `parentId` | Parent node |
+| `node.data` | `data` | Custom data |
+| `edge.label` | `data.label` | Stored in data |
+
+### Usage with React Flow
+
+```tsx
+import { toXYFlow } from '@statelyai/graph';
+import { ReactFlow } from '@xyflow/react';
+
+function FlowChart() {
+  const { nodes, edges } = toXYFlow(graph);
+  
+  return (
+    <ReactFlow 
+      nodes={nodes} 
+      edges={edges}
+    />
+  );
+}
+```
+
+### Type Definitions
+
+```ts
+import type { NodeBase, EdgeBase } from '@xyflow/system';
+
+type XYFlowNode<TNodeData = Record<string, unknown>> = NodeBase<TNodeData>;
+type XYFlowEdge<TEdgeData = Record<string, unknown>> = EdgeBase<TEdgeData>;
+
+interface XYFlow<TNodeData = any, TEdgeData = any> {
+  nodes: XYFlowNode<TNodeData>[];
+  edges: XYFlowEdge<TEdgeData>[];
+}
+```
+
+## Format Comparison
+
+| Format | Type | Metadata | Compound | Dependencies |
+|--------|------|----------|----------|-------------|
+| **JGF** | JSON | ✅ Full | ✅ Yes | None |
+| **GML** | Text | ✅ Full | ✅ Nested | None |
+| **TGF** | Text | ⚠️ Labels only | ❌ No | None |
+| **Edge List** | Array | ❌ None | ❌ No | None |
+| **Adjacency List** | Object | ❌ None | ❌ No | None |
+| **XYFlow** | JSON | ✅ Full | ✅ Yes | `@xyflow/system` |
+
+## Use Cases
+
+### JGF
+- Interoperability with other tools
+- Full graph data preservation
+- Web APIs and data exchange
+
+### GML
+- yEd graph editor
+- Human-readable storage
+- Version control friendly
+
+### TGF
+- Quick prototyping
+- Hand-written graphs
+- Educational examples
+
+### Edge List
+- Algorithm input
+- Network analysis
+- Large sparse graphs
+
+### Adjacency List
+- Traversal algorithms
+- Graph algorithms textbooks
+- Performance-critical code
+
+### XYFlow
+- React Flow applications
+- Svelte Flow applications
+- Interactive graph editors
+
+## See Also
+
+- [Format Overview](/api/formats/overview) - All format converters
+- [Cytoscape.js](/api/formats/cytoscape) - Another JSON visualization format
+- [D3.js](/api/formats/d3) - Force-directed JSON format

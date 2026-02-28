@@ -1,0 +1,273 @@
+---
+title: Spanning Trees
+description: Minimum spanning tree algorithms and tree validation
+---
+
+Spanning tree algorithms find connected subgraphs that include all vertices with minimum total edge weight.
+
+## getMinimumSpanningTree
+
+```ts
+function getMinimumSpanningTree<N, E>(
+  graph: Graph<N, E>,
+  opts?: MSTOptions<E>
+): Graph<N, E>
+```
+
+Returns a minimum spanning tree of the graph. Only meaningful for connected undirected graphs (or the component reachable from an arbitrary start node in directed graphs).
+
+**Complexity:**
+- Prim's algorithm: O(E log V) with binary heap
+- Kruskal's algorithm: O(E log E) which is O(E log V) since E ≤ V²
+
+**When to use:**
+- Network design (minimum cable length)
+- Clustering algorithms
+- Approximating traveling salesman
+- Finding minimum cost to connect all nodes
+
+**Algorithm:** Uses Prim's algorithm by default, or Kruskal's with `algorithm: 'kruskal'` option.
+
+### Example
+
+```ts
+import { createGraph, getMinimumSpanningTree } from '@statelyai/graph';
+
+const graph = createGraph({
+  type: 'undirected',
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b', data: { weight: 1 } },
+    { id: 'bc', sourceId: 'b', targetId: 'c', data: { weight: 2 } },
+    { id: 'ac', sourceId: 'a', targetId: 'c', data: { weight: 3 } },
+  ],
+});
+
+const mst = getMinimumSpanningTree(graph, {
+  getWeight: (e) => e.data.weight,
+});
+// MST has edges 'ab' and 'bc' (total weight 3)
+```
+
+### Unweighted graphs
+
+For unweighted graphs (or when all edges have equal weight), the MST is any spanning tree:
+
+```ts
+const graph = createGraph({
+  type: 'undirected',
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+    { id: 'cd', sourceId: 'c', targetId: 'd' },
+    { id: 'ad', sourceId: 'a', targetId: 'd' },
+  ],
+});
+
+const mst = getMinimumSpanningTree(graph);
+// Default weight of 1 per edge
+console.log('MST edges:', mst.edges.length); // 3 edges (V-1)
+```
+
+### Using Kruskal's algorithm
+
+```ts
+const mst = getMinimumSpanningTree(graph, {
+  algorithm: 'kruskal',
+  getWeight: (e) => e.data?.cost ?? 1,
+});
+```
+
+## Use Cases
+
+### Network design
+
+Minimize cable length to connect all buildings:
+
+```ts
+import { createGraph, getMinimumSpanningTree } from '@statelyai/graph';
+
+const buildings = createGraph({
+  type: 'undirected',
+  nodes: [
+    { id: 'building-a' },
+    { id: 'building-b' },
+    { id: 'building-c' },
+    { id: 'building-d' },
+  ],
+  edges: [
+    { id: 'ab', sourceId: 'building-a', targetId: 'building-b', 
+      data: { distance: 100 } },
+    { id: 'ac', sourceId: 'building-a', targetId: 'building-c', 
+      data: { distance: 150 } },
+    { id: 'ad', sourceId: 'building-a', targetId: 'building-d', 
+      data: { distance: 200 } },
+    { id: 'bc', sourceId: 'building-b', targetId: 'building-c', 
+      data: { distance: 120 } },
+    { id: 'bd', sourceId: 'building-b', targetId: 'building-d', 
+      data: { distance: 180 } },
+    { id: 'cd', sourceId: 'building-c', targetId: 'building-d', 
+      data: { distance: 140 } },
+  ],
+});
+
+const network = getMinimumSpanningTree(buildings, {
+  getWeight: (e) => e.data.distance,
+});
+
+const totalLength = network.edges.reduce(
+  (sum, e) => sum + e.data.distance, 
+  0
+);
+console.log(`Minimum cable length: ${totalLength}m`);
+console.log('Connections:');
+network.edges.forEach(e => {
+  console.log(`  ${e.sourceId} - ${e.targetId}: ${e.data.distance}m`);
+});
+```
+
+### Clustering
+
+Create hierarchical clusters by removing MST edges:
+
+```ts
+const points = createGraph({
+  type: 'undirected',
+  nodes: [
+    { id: 'p1', data: { x: 0, y: 0 } },
+    { id: 'p2', data: { x: 1, y: 1 } },
+    { id: 'p3', data: { x: 10, y: 10 } },
+    { id: 'p4', data: { x: 11, y: 11 } },
+  ],
+  edges: [] // fully connected with distances
+});
+
+// Add all pairwise edges with distances
+for (let i = 0; i < points.nodes.length; i++) {
+  for (let j = i + 1; j < points.nodes.length; j++) {
+    const p1 = points.nodes[i];
+    const p2 = points.nodes[j];
+    const dist = Math.hypot(p1.data.x - p2.data.x, p1.data.y - p2.data.y);
+    points.edges.push({
+      id: `${p1.id}-${p2.id}`,
+      sourceId: p1.id,
+      targetId: p2.id,
+      data: { distance: dist },
+    });
+  }
+}
+
+const mst = getMinimumSpanningTree(points, {
+  getWeight: (e) => e.data.distance,
+});
+
+// Sort MST edges by weight and remove longest edges to create clusters
+const sortedEdges = [...mst.edges].sort(
+  (a, b) => b.data.distance - a.data.distance
+);
+
+const k = 2; // number of clusters
+const clusterEdges = sortedEdges.slice(k - 1);
+console.log('Cluster edges:', clusterEdges.map(e => `${e.sourceId}-${e.targetId}`));
+```
+
+## isTree
+
+```ts
+function isTree(graph: Graph): boolean
+```
+
+Checks whether the graph is a tree (connected and acyclic).
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Validating tree structures
+- Checking if MST is valid
+- Ensuring graph has tree properties
+
+**Properties:** A tree has exactly V-1 edges, is connected, and contains no cycles.
+
+### Example
+
+```ts
+import { createGraph, isTree } from '@statelyai/graph';
+
+const tree = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'ac', sourceId: 'a', targetId: 'c' },
+  ],
+});
+
+isTree(tree); // true
+```
+
+### Validating spanning tree
+
+```ts
+const mst = getMinimumSpanningTree(graph);
+
+if (isTree(mst)) {
+  console.log('Valid spanning tree');
+  console.log('Edges:', mst.edges.length);
+  console.log('Expected:', mst.nodes.length - 1);
+}
+```
+
+### Tree properties
+
+```ts
+function validateTreeProperties(graph: Graph): void {
+  const isValidTree = isTree(graph);
+  const expectedEdges = graph.nodes.length - 1;
+  const actualEdges = graph.edges.length;
+  
+  console.log('Is tree:', isValidTree);
+  console.log('Nodes:', graph.nodes.length);
+  console.log('Edges:', actualEdges, '(expected:', expectedEdges, ')');
+  
+  if (!isValidTree) {
+    if (actualEdges > expectedEdges) {
+      console.log('Has cycle (too many edges)');
+    } else if (actualEdges < expectedEdges) {
+      console.log('Disconnected (too few edges)');
+    }
+  }
+}
+```
+
+## Options
+
+### MSTOptions
+
+```ts
+interface MSTOptions<TEdgeData = any> {
+  algorithm?: 'prim' | 'kruskal';
+  getWeight?: (edge: GraphEdge<TEdgeData>) => number;
+}
+```
+
+**Properties:**
+
+- `algorithm` - Algorithm to use. Default: `'prim'`. Options:
+  - `'prim'` - Prim's algorithm (grows tree from single node)
+  - `'kruskal'` - Kruskal's algorithm (sorts edges, uses union-find)
+- `getWeight` - Edge weight function. Default: every edge has weight 1
+
+### Algorithm comparison
+
+| Algorithm | Best for | Complexity | Notes |
+|-----------|----------|------------|-------|
+| Prim | Dense graphs | O(E log V) | Grows tree from start node |
+| Kruskal | Sparse graphs | O(E log E) | Processes edges in weight order |
+
+Both produce the same MST (though ties may differ).
+
+## Related Algorithms
+
+- [`isConnected()`](/api/algorithms/components#isconnected) - Check if graph is connected before MST
+- [`isAcyclic()`](/api/algorithms/cycles#isacyclic) - Trees must be acyclic
+- [`getConnectedComponents()`](/api/algorithms/components#getconnectedcomponents) - MST only works on connected graphs

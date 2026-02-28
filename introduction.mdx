@@ -1,0 +1,145 @@
+---
+title: Introduction
+description: A TypeScript graph library built on plain JSON objects
+---
+
+# @statelyai/graph
+
+A TypeScript graph library built on plain JSON objects. Supports directed/undirected graphs, hierarchical nodes, graph algorithms, visual properties, and serialization to DOT, GraphML, and more.
+
+Made from our experience at [stately.ai](https://stately.ai), where we build visual tools for complex systems.
+
+## Why this library?
+
+Graph file formats (GEXF, GraphML) define how to **store** graphs. Visualization libraries (Cytoscape.js, D3) define how to **render** them. Neither gives you a good way to **work with** them in between.
+
+This library is the computational layer: plain JSON objects in, algorithms and mutations, plain JSON objects out. No classes, no DOM, no rendering engine; just data and functions.
+
+```
+GEXF file → fromGEXF() → Graph → run algorithms, mutate → toCytoscapeJSON() → render
+```
+
+Your `Graph` is a plain object that survives `JSON.stringify`, `structuredClone`, `postMessage`, and `localStorage` without adapters. Format converters are the I/O ports: read from any supported format, do your work, export to whatever your renderer or database expects.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Plain JSON Objects" icon="code">
+    No classes or prototypes. Graphs are plain objects that survive `JSON.stringify`, `structuredClone`, and `postMessage` without special handling.
+  </Card>
+  
+  <Card title="Hierarchical Graphs" icon="sitemap">
+    Native support for parent-child node relationships with compound nodes, initial states, and hierarchy traversal functions.
+  </Card>
+  
+  <Card title="Rich Algorithms" icon="project-diagram">
+    BFS/DFS traversal, shortest paths, cycle detection, topological sorting, connected components, minimum spanning trees, and more.
+  </Card>
+  
+  <Card title="Format Conversion" icon="arrows-rotate">
+    Convert between DOT, GraphML, GEXF, Cytoscape.js, D3.js, Mermaid, and more. Import from any format, export to any other.
+  </Card>
+  
+  <Card title="Visual Properties" icon="palette">
+    Optional position (x, y), size (width, height), shape, and color properties on nodes and edges for rendering.
+  </Card>
+  
+  <Card title="TypeScript First" icon="code">
+    Full type safety with generics for custom node data, edge data, and graph data. Excellent autocomplete and inference.
+  </Card>
+</CardGroup>
+
+## What You Can Build
+
+- **State machine visualizers** - Create interactive diagrams of state transitions
+- **Dependency graphs** - Analyze and visualize package dependencies
+- **Network diagrams** - Build interactive network topology visualizations
+- **Flowchart editors** - Create visual workflow and process editors
+- **Mind maps** - Build hierarchical knowledge visualization tools
+- **Database ERDs** - Generate entity-relationship diagrams from schemas
+
+## Core Concepts
+
+### Plain Objects, Not Classes
+
+Graphs are plain JSON-serializable objects:
+
+```typescript
+import { createGraph } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e1', sourceId: 'a', targetId: 'b' }],
+});
+
+// It's just an object
+JSON.stringify(graph); // works
+structuredClone(graph); // works
+localStorage.setItem('graph', JSON.stringify(graph)); // works
+```
+
+### Functional API
+
+All operations are functions that take a graph as the first parameter:
+
+```typescript
+import { addNode, addEdge, getNeighbors } from '@statelyai/graph';
+
+// Mutations modify the graph in place
+addNode(graph, { id: 'c' });
+addEdge(graph, { id: 'e2', sourceId: 'b', targetId: 'c' });
+
+// Queries are non-destructive
+const neighbors = getNeighbors(graph, 'a'); // [{ id: 'b', ... }]
+```
+
+### Type-Safe Generics
+
+Attach custom data to nodes, edges, and the graph itself:
+
+```typescript
+interface NodeData {
+  status: 'active' | 'inactive';
+  count: number;
+}
+
+interface EdgeData {
+  weight: number;
+}
+
+const graph = createGraph<NodeData, EdgeData>({
+  nodes: [
+    { id: 'a', data: { status: 'active', count: 5 } },
+    { id: 'b', data: { status: 'inactive', count: 0 } },
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'a', targetId: 'b', data: { weight: 10 } },
+  ],
+});
+
+// Full type safety
+const node = getNode(graph, 'a');
+if (node) {
+  console.log(node.data.status); // 'active' | 'inactive'
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install @statelyai/graph with your package manager
+  </Card>
+  
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first graph in 5 minutes
+  </Card>
+  
+  <Card title="Core Concepts" icon="lightbulb" href="/concepts/graphs">
+    Learn about graph structure and data types
+  </Card>
+  
+  <Card title="Graph Operations" icon="wrench" href="/api/graph-creation">
+    Explore creation, mutation, and lookup functions
+  </Card>
+</CardGroup>

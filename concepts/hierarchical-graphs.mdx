@@ -1,0 +1,457 @@
+---
+title: 'Hierarchical Graphs'
+description: 'Parent-child relationships and compound nodes'
+---
+
+## Overview
+
+Hierarchical graphs (also called **compound graphs** or **nested graphs**) allow nodes to contain other nodes, creating a parent-child tree structure. This is useful for:
+
+- Statecharts with nested states
+- Organizational charts
+- File system hierarchies
+- Grouped diagrams
+
+## Parent-Child Relationships
+
+Nodes can specify a `parentId` to create hierarchy:
+
+```typescript
+import { createGraph } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent' },
+    { id: 'child1', parentId: 'parent' },
+    { id: 'child2', parentId: 'parent' },
+    { id: 'grandchild', parentId: 'child1' }
+  ]
+});
+
+// Tree structure:
+// parent
+//   ├─ child1
+//   │   └─ grandchild
+//   └─ child2
+```
+
+<Info>
+The `parentId` field creates a **hierarchy tree** that is separate from the **edge graph**. Edges connect nodes at any level, while `parentId` defines containment.
+</Info>
+
+## Root Nodes
+
+Nodes without a `parentId` (or with `parentId: null`) are **root-level** nodes:
+
+```typescript
+import { getRoots } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root1' },
+    { id: 'root2' },
+    { id: 'child', parentId: 'root1' }
+  ]
+});
+
+const roots = getRoots(graph);
+// => [node root1, node root2]
+```
+
+## Compound Nodes
+
+A **compound node** (also called a **group node**) is a node that has children. Use `isCompound()` to check:
+
+```typescript
+import { isCompound, isLeaf } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent' },
+    { id: 'child', parentId: 'parent' }
+  ]
+});
+
+isCompound(graph, 'parent'); // true
+isLeaf(graph, 'parent');     // false
+
+isCompound(graph, 'child');  // false
+isLeaf(graph, 'child');      // true
+```
+
+## Querying Hierarchy
+
+The library provides several functions to navigate the hierarchy tree:
+
+### Get Children
+
+```typescript
+import { getChildren } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent' },
+    { id: 'child1', parentId: 'parent' },
+    { id: 'child2', parentId: 'parent' }
+  ]
+});
+
+// Get direct children
+const children = getChildren(graph, 'parent');
+// => [node child1, node child2]
+
+// Get root-level nodes
+const roots = getChildren(graph, null);
+// => [node parent]
+```
+
+### Get Parent
+
+```typescript
+import { getParent } from '@statelyai/graph';
+
+const parent = getParent(graph, 'child1');
+// => node parent
+
+const noParent = getParent(graph, 'parent');
+// => undefined (root node)
+```
+
+### Get Ancestors
+
+Returns all ancestors from the node up to the root:
+
+```typescript
+import { getAncestors } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'mid', parentId: 'root' },
+    { id: 'leaf', parentId: 'mid' }
+  ]
+});
+
+const ancestors = getAncestors(graph, 'leaf');
+// => [node mid, node root]
+// Nearest parent first
+```
+
+### Get Descendants
+
+Returns all descendants recursively:
+
+```typescript
+import { getDescendants } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'child', parentId: 'root' },
+    { id: 'grandchild', parentId: 'child' }
+  ]
+});
+
+const descendants = getDescendants(graph, 'root');
+// => [node child, node grandchild]
+// Depth-first order
+```
+
+### Get Siblings
+
+Nodes with the same `parentId`:
+
+```typescript
+import { getSiblings } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent' },
+    { id: 'a', parentId: 'parent' },
+    { id: 'b', parentId: 'parent' },
+    { id: 'c', parentId: 'parent' }
+  ]
+});
+
+const siblings = getSiblings(graph, 'a');
+// => [node b, node c]
+// Excludes 'a' itself
+```
+
+### Get Depth
+
+Depth in the hierarchy tree (root = 0):
+
+```typescript
+import { getDepth } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'child', parentId: 'root' },
+    { id: 'grandchild', parentId: 'child' }
+  ]
+});
+
+getDepth(graph, 'root');       // => 0
+getDepth(graph, 'child');      // => 1
+getDepth(graph, 'grandchild'); // => 2
+getDepth(graph, 'missing');    // => -1
+```
+
+## Least Common Ancestor (LCA)
+
+Find the deepest proper ancestor shared by multiple nodes:
+
+```typescript
+import { getLCA } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'a', parentId: 'root' },
+    { id: 'b', parentId: 'root' },
+    { id: 'a1', parentId: 'a' },
+    { id: 'a2', parentId: 'a' }
+  ]
+});
+
+getLCA(graph, 'a1', 'a2');
+// => node a
+
+getLCA(graph, 'a1', 'b');
+// => node root
+
+getLCA(graph, 'a', 'b');
+// => node root
+```
+
+<Note>
+The LCA must be a **proper ancestor**, meaning it excludes the input nodes themselves.
+</Note>
+
+## Initial Node ID
+
+Compound nodes can specify an `initialNodeId` to indicate which child is the entry point:
+
+```typescript
+const graph = createGraph({
+  nodes: [
+    {
+      id: 'parent',
+      initialNodeId: 'start' // Entry point for this compound node
+    },
+    { id: 'start', parentId: 'parent' },
+    { id: 'end', parentId: 'parent' }
+  ],
+  edges: [
+    { id: 'e1', sourceId: 'start', targetId: 'end' }
+  ]
+});
+```
+
+This is useful for statecharts where entering a compound state activates a specific child state.
+
+## Relative Distance
+
+Measure distance from a parent's `initialNodeId` to child nodes:
+
+```typescript
+import { getRelativeDistance, getRelativeDistanceMap } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'parent', initialNodeId: 's1' },
+    { id: 's1', parentId: 'parent' },
+    { id: 's2', parentId: 'parent' },
+    { id: 's3', parentId: 'parent' }
+  ],
+  edges: [
+    { id: 'e1', sourceId: 's1', targetId: 's2' },
+    { id: 'e2', sourceId: 's2', targetId: 's3' }
+  ]
+});
+
+// Distance from parent's initialNodeId (s1)
+getRelativeDistance(graph, 's1'); // => 0
+getRelativeDistance(graph, 's2'); // => 1
+getRelativeDistance(graph, 's3'); // => 2
+
+// Get all distances at once
+const distMap = getRelativeDistanceMap(graph, 'parent');
+// => { s1: 0, s2: 1, s3: 2 }
+```
+
+<Info>
+`getRelativeDistance()` only follows edges between siblings (nodes with the same `parentId`). This keeps the distance calculation scoped to a single hierarchy level.
+</Info>
+
+## Deleting Nodes with Children
+
+When you delete a compound node, you can choose what happens to its children:
+
+### Cascade Delete (Default)
+
+Delete the node and all descendants:
+
+```typescript
+import { deleteNode } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'child', parentId: 'root' },
+    { id: 'grandchild', parentId: 'child' }
+  ]
+});
+
+deleteNode(graph, 'root');
+// Removes: root, child, grandchild
+```
+
+### Reparent Children
+
+Re-parent children to the deleted node's parent:
+
+```typescript
+import { deleteNode } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'root' },
+    { id: 'mid', parentId: 'root' },
+    { id: 'leaf', parentId: 'mid' }
+  ]
+});
+
+deleteNode(graph, 'mid', { reparent: true });
+// After deletion:
+// - 'mid' is removed
+// - 'leaf' becomes child of 'root'
+```
+
+## Hierarchy + Edges
+
+Hierarchy and edges are **independent** structures:
+
+- **`parentId`** defines containment (which nodes are inside other nodes)
+- **Edges** define connections/transitions (how nodes relate to each other)
+
+Edges can connect nodes at different hierarchy levels:
+
+```typescript
+const graph = createGraph({
+  nodes: [
+    { id: 'group1' },
+    { id: 'a', parentId: 'group1' },
+    { id: 'group2' },
+    { id: 'b', parentId: 'group2' }
+  ],
+  edges: [
+    // Edge crosses hierarchy levels
+    { id: 'e1', sourceId: 'a', targetId: 'b' }
+  ]
+});
+
+// Tree structure:
+// group1
+//   └─ a ───edge───> b
+//                     ↑
+// group2 ─────────────┘
+```
+
+<Warning>
+When exporting to formats like DOT or GraphML, some renderers may have special rules for edges that cross hierarchy boundaries. Check the format documentation for details.
+</Warning>
+
+## Example: Statechart
+
+Hierarchical graphs are perfect for statecharts:
+
+```typescript
+import { createGraph } from '@statelyai/graph';
+
+const statechart = createGraph({
+  id: 'authentication',
+  initialNodeId: 'loggedOut',
+  nodes: [
+    // Root-level states
+    { id: 'loggedOut' },
+    {
+      id: 'loggedIn',
+      initialNodeId: 'profile' // Default child when entering
+    },
+    // Nested states inside 'loggedIn'
+    { id: 'profile', parentId: 'loggedIn' },
+    { id: 'settings', parentId: 'loggedIn' },
+    { id: 'admin', parentId: 'loggedIn' }
+  ],
+  edges: [
+    // Login transition
+    { id: 'login', sourceId: 'loggedOut', targetId: 'loggedIn' },
+    // Logout transition
+    { id: 'logout', sourceId: 'loggedIn', targetId: 'loggedOut' },
+    // Navigate between child states
+    { id: 'toProfile', sourceId: 'settings', targetId: 'profile' },
+    { id: 'toSettings', sourceId: 'profile', targetId: 'settings' },
+    { id: 'toAdmin', sourceId: 'settings', targetId: 'admin' }
+  ]
+});
+```
+
+## Example: Organization Chart
+
+```typescript
+interface EmployeeData {
+  name: string;
+  title: string;
+  department: string;
+}
+
+const orgChart = createGraph<EmployeeData>({
+  id: 'org-chart',
+  nodes: [
+    {
+      id: 'ceo',
+      label: 'CEO',
+      data: { name: 'Alice', title: 'Chief Executive Officer', department: 'Executive' }
+    },
+    {
+      id: 'cto',
+      parentId: 'ceo',
+      label: 'CTO',
+      data: { name: 'Bob', title: 'Chief Technology Officer', department: 'Engineering' }
+    },
+    {
+      id: 'dev1',
+      parentId: 'cto',
+      label: 'Senior Dev',
+      data: { name: 'Charlie', title: 'Senior Developer', department: 'Engineering' }
+    },
+    {
+      id: 'dev2',
+      parentId: 'cto',
+      label: 'Junior Dev',
+      data: { name: 'Dana', title: 'Junior Developer', department: 'Engineering' }
+    }
+  ],
+  edges: [] // No edges needed - hierarchy defines relationships
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Queries" icon="magnifying-glass" href="/api/queries/hierarchy">
+    Explore all hierarchy query functions
+  </Card>
+  <Card title="Visual Graphs" icon="eye" href="/concepts/visual-graphs">
+    Position and render hierarchical layouts
+  </Card>
+  <Card title="Operations" icon="wrench" href="/api/mutations">
+    Add, update, and delete hierarchical nodes
+  </Card>
+  <Card title="Algorithms" icon="diagram-project" href="/api/algorithms/traversal">
+    Traverse and analyze hierarchical graphs
+  </Card>
+</CardGroup>

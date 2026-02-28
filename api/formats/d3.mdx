@@ -1,0 +1,261 @@
+---
+title: D3.js Format
+description: Convert graphs to and from D3.js force-directed JSON format
+---
+
+# D3.js Format
+
+Convert graphs to and from [D3.js](https://d3js.org/) force-directed graph format for visualization.
+
+## Features
+
+- **Force-directed layout**: Compatible with `d3-force` simulation
+- **Simple structure**: Just `nodes` and `links` arrays
+- **No dependencies**: Pure JavaScript conversion
+- **Visual properties**: Position, color, shape support
+
+## Import
+
+```ts
+import { toD3Graph, fromD3Graph, d3Converter } from '@statelyai/graph';
+// Or from subpath:
+import { toD3Graph } from '@statelyai/graph/d3';
+```
+
+## `toD3Graph()`
+
+Converts a graph to D3.js force-directed format.
+
+```ts
+import { createGraph, toD3Graph } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [
+    { id: 'a', label: 'Node A', x: 0, y: 0 },
+    { id: 'b', label: 'Node B', x: 100, y: 100 },
+    { id: 'c', label: 'Node C' }
+  ],
+  edges: [
+    { id: 'e0', sourceId: 'a', targetId: 'b' },
+    { id: 'e1', sourceId: 'b', targetId: 'c' }
+  ]
+});
+
+const d3 = toD3Graph(graph);
+```
+
+**Result:**
+
+```json
+{
+  "nodes": [
+    { "id": "a", "label": "Node A", "x": 0, "y": 0 },
+    { "id": "b", "label": "Node B", "x": 100, "y": 100 },
+    { "id": "c", "label": "Node C" }
+  ],
+  "links": [
+    { "id": "e0", "source": "a", "target": "b" },
+    { "id": "e1", "source": "b", "target": "c" }
+  ]
+}
+```
+
+### Type Signature
+
+```ts
+function toD3Graph(graph: Graph): D3Graph
+```
+
+### Parameters
+
+<ParamField path="graph" type="Graph" required>
+  The graph to convert
+</ParamField>
+
+### Returns
+
+A `D3Graph` object with:
+- `nodes`: Array of D3 nodes
+- `links`: Array of D3 links
+
+### Mapping
+
+| Graph Property | D3 Property | Notes |
+|----------------|-------------|-------|
+| `node.id` | `id` | Required, used for link references |
+| `node.label` | `label` | Optional |
+| `node.x, node.y` | `x`, `y` | Initial position |
+| `node.color` | `color` | Custom property |
+| `node.shape` | `shape` | Custom property |
+| `node.data` | `data` | Custom data |
+| `edge.id` | `id` | Optional |
+| `edge.sourceId` | `source` | Node ID string |
+| `edge.targetId` | `target` | Node ID string |
+| `edge.label` | `label` | Optional |
+| `edge.color` | `color` | Custom property |
+| `edge.data` | `data` | Custom data |
+
+<Note>
+  D3 does not support compound graphs. Parent-child relationships are ignored during conversion.
+</Note>
+
+## `fromD3Graph()`
+
+Parses a D3.js graph object into a graph.
+
+```ts
+import { fromD3Graph } from '@statelyai/graph';
+
+const graph = fromD3Graph({
+  nodes: [
+    { id: 'a', label: 'Node A' },
+    { id: 'b', label: 'Node B' }
+  ],
+  links: [
+    { source: 'a', target: 'b' }
+  ]
+});
+```
+
+### Type Signature
+
+```ts
+function fromD3Graph(d3: D3Graph): Graph
+```
+
+### Parameters
+
+<ParamField path="d3" type="D3Graph" required>
+  D3 graph object to parse
+</ParamField>
+
+### Returns
+
+A `Graph` object with nodes and edges.
+
+### Handling Object References
+
+D3 force simulation modifies links to use object references:
+
+```ts
+// D3 simulation replaces string IDs with node objects
+const simulation = d3.forceSimulation(data.nodes)
+  .force('link', d3.forceLink(data.links).id(d => d.id));
+
+// After simulation, links may have object references:
+// { source: { id: 'a', x: 10, y: 20 }, target: { id: 'b', ... } }
+
+// fromD3Graph handles both:
+const graph1 = fromD3Graph({ nodes, links: [{ source: 'a', target: 'b' }] });
+const graph2 = fromD3Graph({ nodes, links: [{ source: nodeA, target: nodeB }] });
+```
+
+### Error Handling
+
+```ts
+try {
+  const graph = fromD3Graph({ nodes: 'invalid' });
+} catch (error) {
+  console.error(error.message);
+  // "D3: 'nodes' must be an array"
+}
+```
+
+## `d3Converter`
+
+Bidirectional converter object.
+
+```ts
+import { createGraph, d3Converter } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }],
+  edges: [{ id: 'e0', sourceId: 'a', targetId: 'b' }]
+});
+
+const d3 = d3Converter.to(graph);
+const roundTripped = d3Converter.from(d3);
+```
+
+### Type
+
+```ts
+const d3Converter: GraphFormatConverter<D3Graph>
+```
+
+## Type Definitions
+
+```ts
+interface D3Node {
+  id: string;
+  [key: string]: any;
+}
+
+interface D3Link {
+  source: string;  // Can also be D3Node object after simulation
+  target: string;  // Can also be D3Node object after simulation
+  [key: string]: any;
+}
+
+interface D3Graph {
+  nodes: D3Node[];
+  links: D3Link[];
+}
+```
+
+## Usage with d3-force
+
+```ts
+import { toD3Graph } from '@statelyai/graph';
+import * as d3 from 'd3-force';
+
+const d3Data = toD3Graph(graph);
+
+const simulation = d3.forceSimulation(d3Data.nodes)
+  .force('link', d3.forceLink(d3Data.links)
+    .id(d => d.id)
+    .distance(100)
+  )
+  .force('charge', d3.forceManyBody().strength(-400))
+  .force('center', d3.forceCenter(width / 2, height / 2))
+  .on('tick', () => {
+    // Update visualization with node.x, node.y positions
+  });
+```
+
+## Round-Trip Example
+
+```ts
+import { createGraph, toD3Graph, fromD3Graph } from '@statelyai/graph';
+import * as d3 from 'd3-force';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { sourceId: 'a', targetId: 'b' },
+    { sourceId: 'b', targetId: 'c' }
+  ]
+});
+
+// Convert to D3 format
+const d3Data = toD3Graph(graph);
+
+// Run simulation
+const simulation = d3.forceSimulation(d3Data.nodes)
+  .force('link', d3.forceLink(d3Data.links).id(d => d.id))
+  .force('charge', d3.forceManyBody())
+  .stop();
+
+// Run simulation manually for 300 ticks
+for (let i = 0; i < 300; i++) simulation.tick();
+
+// Convert back to graph with computed positions
+const layoutGraph = fromD3Graph(d3Data);
+// layoutGraph.nodes now have x, y positions from simulation
+```
+
+## See Also
+
+- [Cytoscape.js Format](/api/formats/cytoscape) - Another JSON visualization format with compound graph support
+- [XYFlow Format](/api/formats/other-formats#xyflow) - React Flow / Svelte Flow format
+- [Format Overview](/api/formats/overview) - All supported formats

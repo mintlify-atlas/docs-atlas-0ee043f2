@@ -1,0 +1,452 @@
+---
+title: Paths
+description: Path-finding algorithms for shortest paths and simple paths
+---
+
+Path algorithms find routes between nodes in a graph. They return `GraphPath` objects containing the source node and ordered steps (edge + node pairs).
+
+## Shortest Paths
+
+Shortest path algorithms find paths with minimum total weight. Use BFS for unweighted graphs or Dijkstra for weighted graphs.
+
+### hasPath
+
+```ts
+function hasPath(
+  graph: Graph,
+  sourceId: string,
+  targetId: string
+): boolean
+```
+
+Checks whether a path exists between two nodes.
+
+**Complexity:** O(V + E)
+
+**When to use:**
+- Reachability testing
+- Validating connections before path computation
+
+#### Example
+
+```ts
+import { createGraph, hasPath } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [{ id: 'ab', sourceId: 'a', targetId: 'b' }],
+});
+
+hasPath(graph, 'a', 'b'); // true
+hasPath(graph, 'a', 'c'); // false
+```
+
+### getShortestPath
+
+```ts
+function getShortestPath<N, E>(
+  graph: Graph<N, E>,
+  opts: SinglePathOptions<E>
+): GraphPath<N, E> | undefined
+```
+
+Returns a single shortest path from source to target, or `undefined` if unreachable.
+
+**Complexity:** 
+- O(V + E) for unweighted graphs (BFS)
+- O((V + E) log V) for weighted graphs (Dijkstra)
+
+**When to use:**
+- Finding the shortest route between two points
+- Navigation and routing
+- Dependency resolution
+
+#### Example
+
+```ts
+import { createGraph, getShortestPath } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+const path = getShortestPath(graph, { to: 'c' });
+// path.steps -> [{node: nodeB, edge: ...}, {node: nodeC, edge: ...}]
+```
+
+#### Weighted graphs
+
+```ts
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b', data: { weight: 5 } },
+    { id: 'ac', sourceId: 'a', targetId: 'c', data: { weight: 10 } },
+    { id: 'bc', sourceId: 'b', targetId: 'c', data: { weight: 2 } },
+  ],
+  initialNodeId: 'a',
+});
+
+const path = getShortestPath(graph, {
+  to: 'c',
+  getWeight: (edge) => edge.data.weight,
+});
+// path goes a -> b -> c (total weight: 7)
+```
+
+### getShortestPaths
+
+```ts
+function getShortestPaths<N, E>(
+  graph: Graph<N, E>,
+  opts?: PathOptions<E>
+): GraphPath<N, E>[]
+```
+
+Returns all shortest paths from a source node. When multiple paths have equal minimum length, all are returned.
+
+**Complexity:**
+- O(V + E) for unweighted graphs
+- O((V + E) log V) for weighted graphs
+
+**When to use:**
+- Finding all alternative routes of equal length
+- Analyzing path redundancy
+- Building path tables
+
+#### Example
+
+```ts
+import { createGraph, getShortestPaths } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+const paths = getShortestPaths(graph);
+// Returns paths to 'b' and 'c' from 'a'
+```
+
+### genShortestPaths
+
+```ts
+function genShortestPaths<N, E>(
+  graph: Graph<N, E>,
+  opts?: PathOptions<E>
+): Generator<GraphPath<N, E>>
+```
+
+Lazily yields all shortest paths from a source node. Use `getShortestPaths()` for the full array.
+
+**When to use:**
+- Processing paths without loading all into memory
+- Early termination when finding acceptable path
+
+#### Example
+
+```ts
+import { createGraph, genShortestPaths } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+for (const path of genShortestPaths(graph)) {
+  console.log(path.steps.map(s => s.node.id));
+}
+```
+
+### getAllPairsShortestPaths
+
+```ts
+function getAllPairsShortestPaths<N, E>(
+  graph: Graph<N, E>,
+  opts?: AllPairsShortestPathsOptions<E>
+): GraphPath<N, E>[]
+```
+
+Returns shortest paths between all pairs of nodes.
+
+**Algorithms:**
+- `'dijkstra'` (default): Runs Dijkstra from each source. O(V * (V + E) log V)
+- `'floyd-warshall'`: Dynamic programming. O(V³)
+
+**When to use:**
+- Precomputing all-pairs distances
+- Network diameter calculation
+- Building complete routing tables
+
+**Complexity:**
+- Dijkstra: O(V² + VE log V) for sparse graphs
+- Floyd-Warshall: O(V³) always, better for dense graphs
+
+#### Example
+
+```ts
+import { createGraph, getAllPairsShortestPaths } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+});
+
+const allPaths = getAllPairsShortestPaths(graph);
+// Paths for every reachable (source, target) pair
+```
+
+#### Using Floyd-Warshall
+
+```ts
+const allPaths = getAllPairsShortestPaths(graph, {
+  algorithm: 'floyd-warshall',
+  getWeight: (edge) => edge.data?.weight ?? 1,
+});
+```
+
+## Simple Paths
+
+Simple paths are acyclic paths that don't revisit nodes. These algorithms use DFS backtracking.
+
+### getSimplePath
+
+```ts
+function getSimplePath<N, E>(
+  graph: Graph<N, E>,
+  opts: SinglePathOptions<E>
+): GraphPath<N, E> | undefined
+```
+
+Returns a single simple (acyclic) path from source to target, or `undefined` if unreachable.
+
+**Complexity:** O(V + E) in best case, exponential in worst case
+
+**When to use:**
+- Finding any path without cycles
+- When shortest path might contain cycles (in directed graphs with negative weights)
+
+#### Example
+
+```ts
+import { createGraph, getSimplePath } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+const path = getSimplePath(graph, { to: 'c' });
+// path.steps -> [{node: nodeB, edge: ...}, {node: nodeC, edge: ...}]
+```
+
+### getSimplePaths
+
+```ts
+function getSimplePaths<N, E>(
+  graph: Graph<N, E>,
+  opts?: PathOptions<E>
+): GraphPath<N, E>[]
+```
+
+Returns all simple (acyclic) paths from a source node.
+
+**Complexity:** Exponential (can be V! paths in complete graph)
+
+**When to use:**
+- Enumerating all possible routes
+- Finding alternative paths
+- Network reliability analysis
+
+**Warning:** Can produce exponentially many paths. Use with caution on large graphs.
+
+#### Example
+
+```ts
+import { createGraph, getSimplePaths } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+    { id: 'ac', sourceId: 'a', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+const paths = getSimplePaths(graph, { to: 'c' });
+// Two paths: a->b->c and a->c
+```
+
+### genSimplePaths
+
+```ts
+function genSimplePaths<N, E>(
+  graph: Graph<N, E>,
+  opts?: PathOptions<E>
+): Generator<GraphPath<N, E>>
+```
+
+Lazily yields all simple (acyclic) paths from a source node via DFS backtracking.
+
+**When to use:**
+- Processing paths one at a time
+- Early termination when finding acceptable path
+- Avoiding memory issues with many paths
+
+#### Example
+
+```ts
+import { createGraph, genSimplePaths } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+    { id: 'ac', sourceId: 'a', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+for (const path of genSimplePaths(graph, { to: 'c' })) {
+  console.log(path.steps.map(s => s.node.id));
+  // ['b', 'c'] or ['c']
+}
+```
+
+## Path Operations
+
+### joinPaths
+
+```ts
+function joinPaths<N, E>(
+  headPath: GraphPath<N, E>,
+  tailPath: GraphPath<N, E>
+): GraphPath<N, E>
+```
+
+Joins two paths end-to-end. The last node of the head path must equal the source of the tail path.
+
+**When to use:**
+- Combining path segments
+- Building longer routes from cached sub-paths
+
+#### Example
+
+```ts
+import { createGraph, getShortestPath, joinPaths } from '@statelyai/graph';
+
+const graph = createGraph({
+  nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b' },
+    { id: 'bc', sourceId: 'b', targetId: 'c' },
+  ],
+  initialNodeId: 'a',
+});
+
+const ab = getShortestPath(graph, { to: 'b' })!;
+const bc = getShortestPath(graph, { from: 'b', to: 'c' })!;
+const ac = joinPaths(ab, bc);
+// ac: a -> b -> c
+```
+
+## Options
+
+### PathOptions
+
+```ts
+interface PathOptions<TEdgeData = any> {
+  from?: string;
+  to?: string;
+  getWeight?: (edge: GraphEdge<TEdgeData>) => number;
+}
+```
+
+**Properties:**
+
+- `from` - Source node ID. Default: `graph.initialNodeId`, else the sole node with in-degree 0
+- `to` - Target node ID. If omitted, returns paths to all reachable nodes
+- `getWeight` - Edge weight function. Default: every edge has weight 1. Used by Dijkstra's algorithm when provided
+
+### SinglePathOptions
+
+```ts
+interface SinglePathOptions<TEdgeData = any> {
+  from?: string;
+  to: string;
+  getWeight?: (edge: GraphEdge<TEdgeData>) => number;
+}
+```
+
+**Properties:**
+
+- `from` - Source node ID. Default: `graph.initialNodeId`, else the sole node with in-degree 0
+- `to` - Target node ID. **Required** for single-path queries
+- `getWeight` - Edge weight function. Default: every edge has weight 1
+
+### AllPairsShortestPathsOptions
+
+```ts
+interface AllPairsShortestPathsOptions<TEdgeData = any> {
+  algorithm?: 'floyd-warshall' | 'dijkstra';
+  getWeight?: (edge: GraphEdge<TEdgeData>) => number;
+}
+```
+
+**Properties:**
+
+- `algorithm` - Algorithm to use. Default: `'dijkstra'`. Use `'floyd-warshall'` for dense graphs
+- `getWeight` - Edge weight function. Default: every edge has weight 1
+
+## Path Types
+
+### GraphPath
+
+```ts
+interface GraphPath<TNodeData = any, TEdgeData = any> {
+  source: GraphNode<TNodeData>;
+  steps: GraphStep<TNodeData, TEdgeData>[];
+}
+```
+
+**Properties:**
+
+- `source` - The source node where this path begins
+- `steps` - Ordered steps from source to target. `path.steps.at(-1)?.node` is the final node. Empty steps means source-only path
+
+### GraphStep
+
+```ts
+interface GraphStep<TNodeData = any, TEdgeData = any> {
+  edge: GraphEdge<TEdgeData>;
+  node: GraphNode<TNodeData>;
+}
+```
+
+**Properties:**
+
+- `edge` - Edge traversed to reach this node
+- `node` - Node reached after traversing the edge
