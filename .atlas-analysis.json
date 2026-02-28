@@ -1,0 +1,135 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "@statelyai/graph",
+  "projectDescription": "TypeScript-first graph library with plain JSON-serializable objects for graph algorithms and format conversion",
+  "theme": "sequoia",
+  "primaryColor": "#3b82f6",
+  "lightColor": "#60a5fa",
+  "darkColor": "#2563eb",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Get Started",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": ["introduction", "installation", "quickstart"]
+          }
+        ]
+      },
+      {
+        "tab": "Core Concepts",
+        "groups": [
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/graphs",
+              "concepts/hierarchical-graphs",
+              "concepts/visual-graphs",
+              "concepts/serialization"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Graph Operations",
+            "pages": [
+              "api/graph-creation",
+              "api/mutations",
+              "api/lookups"
+            ]
+          },
+          {
+            "group": "Queries",
+            "pages": [
+              "api/queries/neighbors",
+              "api/queries/hierarchy",
+              "api/queries/degree"
+            ]
+          },
+          {
+            "group": "Algorithms",
+            "pages": [
+              "api/algorithms/traversal",
+              "api/algorithms/paths",
+              "api/algorithms/components",
+              "api/algorithms/sorting",
+              "api/algorithms/cycles",
+              "api/algorithms/spanning-trees"
+            ]
+          },
+          {
+            "group": "Transforms",
+            "pages": ["api/transforms"]
+          },
+          {
+            "group": "Format Conversion",
+            "pages": [
+              "api/formats/overview",
+              "api/formats/cytoscape",
+              "api/formats/d3",
+              "api/formats/dot",
+              "api/formats/graphml",
+              "api/formats/gexf",
+              "api/formats/mermaid",
+              "api/formats/other-formats"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Plain JSON-serializable graph objects",
+    "Hierarchical graph support with parent-child relationships",
+    "Comprehensive graph algorithms (BFS, DFS, shortest paths, MST)",
+    "Visual graph properties for rendering",
+    "Format conversion (DOT, GraphML, GEXF, Cytoscape, D3, Mermaid)",
+    "TypeScript-first with full type safety",
+    "Transparent WeakMap-based indexing",
+    "Functional API with no classes required"
+  ],
+  "publicApiSurface": [
+    "createGraph",
+    "createVisualGraph",
+    "addNode",
+    "addEdge",
+    "deleteNode",
+    "deleteEdge",
+    "updateNode",
+    "updateEdge",
+    "getNode",
+    "getEdge",
+    "getNeighbors",
+    "getSuccessors",
+    "getPredecessors",
+    "getChildren",
+    "getParent",
+    "getAncestors",
+    "getDescendants",
+    "bfs",
+    "dfs",
+    "getShortestPath",
+    "getShortestPaths",
+    "getSimplePaths",
+    "getCycles",
+    "getTopologicalSort",
+    "getConnectedComponents",
+    "getStronglyConnectedComponents",
+    "getMinimumSpanningTree",
+    "flatten",
+    "toDOT",
+    "fromDOT",
+    "toGraphML",
+    "fromGraphML",
+    "toCytoscapeJSON",
+    "fromCytoscapeJSON",
+    "toD3Graph",
+    "fromD3Graph",
+    "toMermaid*",
+    "fromMermaid*"
+  ]
+}
